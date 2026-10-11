@@ -1,6 +1,5 @@
 """Small SDK compatibility probe; this is not the M2 delegation demo."""
 
-import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib.metadata import version
@@ -9,11 +8,9 @@ from uuid import uuid4
 import httpx
 from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
 from a2a.server.agent_execution import AgentExecutor, RequestContext
-from a2a.server.context import ServerCallContext
 from a2a.server.events import EventQueue
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.routes.agent_card_routes import create_agent_card_routes
-from a2a.server.routes.common import DefaultServerCallContextBuilder
 from a2a.server.routes.jsonrpc_routes import create_jsonrpc_routes
 from a2a.server.tasks import InMemoryTaskStore
 from a2a.types import (
@@ -26,13 +23,12 @@ from a2a.types import (
     Role,
     SendMessageRequest,
 )
-from a2a.utils.errors import InvalidParamsError, UnsupportedOperationError, VersionNotSupportedError
+from a2a.utils.errors import InvalidParamsError, UnsupportedOperationError
 from starlette.applications import Starlette
-from starlette.requests import Request
 
+from a2a_lab.a2a.protocol import PROTOCOL_VERSION, PinnedVersionContextBuilder
 from a2a_lab.config import RPC_PATH, Settings
 
-PROTOCOL_VERSION = "1.0"
 PROBE_REPLY = "M1 SDK probe acknowledged the text request."
 
 
@@ -94,17 +90,6 @@ class ProbeExecutor(AgentExecutor):
         raise UnsupportedOperationError(message="The immediate M1 probe has no cancellable work.")
 
 
-class _PinnedVersionContextBuilder(DefaultServerCallContextBuilder):
-    """Restrict the SDK's major-version policy to the tested minor version."""
-
-    def build(self, request: Request) -> ServerCallContext:
-        actual = request.headers.get("A2A-Version", "")
-        # Patch numbers do not affect A2A compatibility. Clients emit plain 1.0.
-        if re.fullmatch(rf"{re.escape(PROTOCOL_VERSION)}(?:\.[0-9]+)?", actual) is None:
-            raise VersionNotSupportedError(message="This lab interface supports A2A 1.0 only.")
-        return super().build(request)
-
-
 def create_probe_app(settings: Settings) -> Starlette:
     """Wire released SDK routes and drain its handler on application shutdown."""
     card = build_probe_card(settings)
@@ -129,7 +114,7 @@ def create_probe_app(settings: Settings) -> Starlette:
             *create_jsonrpc_routes(
                 handler,
                 rpc_url=RPC_PATH,
-                context_builder=_PinnedVersionContextBuilder(),
+                context_builder=PinnedVersionContextBuilder(),
                 enable_v0_3_compat=False,
             ),
         ],

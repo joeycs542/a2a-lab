@@ -25,6 +25,7 @@ dev = [
   "pytest>=8.4,<10",
   "pytest-asyncio>=1.1,<2",
   "ruff>=0.13,<1",
+  "types-protobuf>=6,<8",
 ]
 
 [tool.hatch.build.targets.wheel]

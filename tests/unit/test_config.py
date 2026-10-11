@@ -1,3 +1,4 @@
+import socket
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,12 @@ from a2a_lab.config import Settings
         {"request_timeout_seconds": float("inf")},
         {"request_timeout_seconds": float("nan")},
         {"max_input_characters": 0},
+        {"coordinator_port": 8102, "knowledge_port": 8102},
+        {"knowledge_port": 65536},
+        {"max_payload_bytes": 0},
+        {"max_concurrent_requests": 0},
+        {"startup_timeout_seconds": 0},
+        {"shutdown_timeout_seconds": float("nan")},
     ],
 )
 def test_unsafe_or_invalid_configuration_is_rejected(values: dict[str, object]) -> None:
@@ -52,3 +59,14 @@ def test_cli_rejects_configuration_without_disclosing_values(
     output = capsys.readouterr()
     assert "Invalid lab configuration" in output.err
     assert "do-not-print-this" not in output.err + output.out
+
+
+@pytest.mark.parametrize("host", ["0.0.0.0", "127.0.0.1"])
+def test_inherited_listener_cannot_override_configured_host_or_port(
+    host: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with socket.socket() as listener:
+        listener.bind((host, 0))
+        listener.listen()
+        assert main(["serve", "knowledge", "--socket-fd", str(listener.fileno())]) == 2
+    assert "must match the configured loopback endpoint" in capsys.readouterr().err

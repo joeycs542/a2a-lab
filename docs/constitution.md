@@ -75,6 +75,16 @@ Coding agent `SKILL.md` files guide engineering work. Agent Card skills advertis
 
 Review evidence: served-card validation, capability checks, contract failure cases, and disclosure review.
 
+## Agent discovery and peer selection
+
+Keep finding a candidate address, interpreting its card, and authorizing a connection distinct. Use approved configuration for initial peer lookup and the SDK for live card resolution. A well-known card path tells a client where to fetch metadata on a known host; it does not enumerate agents on a network. [A2A discovery guidance](https://a2a-protocol.org/v1.0.0/topics/agent-discovery/) describes additional directory strategies.
+
+Validate the card's protocol, binding, content modes, and required capability before delegation. Apply destination policy before fetching cards and before calling advertised endpoints; card content cannot widen that policy. Bound discovery requests and fail explicitly for unavailable or unsuitable peers. Avoid implicit redirects to unapproved destinations.
+
+A registry entry, skill description, or successful discovery does not establish identity or permission. If directories or caches are added, define who may publish and query entries, how identity is verified, and how freshness and revocation are enforced. Keep searchable registries and dynamic registration optional until an authorized lab objective requires them.
+
+Review evidence: discovery traces, incompatible/malformed card cases, capability mismatch, unavailable peers, and endpoint-change denial before delegation.
+
 ## Identity and least privilege
 
 Verify acting identity and enforce access on each implemented operation and resource. Task identifiers and caller-supplied ownership fields are not authorization. Task reads, artifacts, cancellation, subscriptions, and listing need the same ownership discipline as writes when those operations are exposed.
