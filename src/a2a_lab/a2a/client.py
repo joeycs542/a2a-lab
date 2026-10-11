@@ -25,7 +25,7 @@ from a2a.types import (
 from a2a.utils.errors import A2AError
 from google.protobuf.json_format import MessageToDict
 
-from a2a_lab.a2a.cards import SKILLS, AgentName
+from a2a_lab.a2a.cards import AgentName, required_skill_id
 from a2a_lab.a2a.limits import BoundaryError, BoundedTransport
 from a2a_lab.a2a.protocol import PROTOCOL_VERSION
 from a2a_lab.config import RPC_PATH, Settings
@@ -75,7 +75,7 @@ def validate_card(card: AgentCard, agent: AgentName, settings: Settings) -> None
         or interface.protocol_version != PROTOCOL_VERSION
     ):
         raise BoundaryError("Agent Card interface is incompatible or unapproved.")
-    skills = [skill for skill in card.skills if skill.id == SKILLS[agent]]
+    skills = [skill for skill in card.skills if skill.id == required_skill_id(agent, settings)]
     if len(skills) != 1 or not skills[0].name or not skills[0].description or not skills[0].tags:
         raise BoundaryError("Agent Card lacks the required capability.")
     skill = skills[0]
@@ -178,7 +178,10 @@ class PeerClient:
                 self._trace(f"discovery.fetch agent={self._agent} url={card_url}")
                 card = await A2ACardResolver(http_client, base_url).get_agent_card()
                 validate_card(card, self._agent, self._settings)
-                self._trace(f"discovery.approved agent={self._agent} skill={SKILLS[self._agent]}")
+                self._trace(
+                    f"discovery.approved agent={self._agent} "
+                    f"skill={required_skill_id(self._agent, self._settings)}"
+                )
                 client = ClientFactory(
                     ClientConfig(
                         streaming=False,

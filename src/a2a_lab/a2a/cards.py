@@ -24,12 +24,26 @@ SKILLS: dict[AgentName, str] = {
 }
 
 
+def required_skill_id(agent: AgentName, settings: Settings) -> str:
+    """Select the expected capability from trusted workflow configuration."""
+    if agent == "knowledge" and settings.knowledge_workflow == "release-readiness":
+        return "release-readiness"
+    return SKILLS[agent]
+
+
 def build_agent_card(agent: AgentName, settings: Settings) -> AgentCard:
     """Advertise text questions and structured, fixture-cited results."""
     description = (
         "Delegate once to the configured knowledge agent and compose its findings."
         if agent == "coordinator"
         else "Match engineering questions to bundled synthetic notes."
+    )
+    if agent == "knowledge" and settings.knowledge_workflow == "release-readiness":
+        description = "Return a bundled release readiness checklist without approving deployments."
+    question = (
+        "What should we review before a release?"
+        if settings.knowledge_workflow == "release-readiness"
+        else "What information should our service runbook contain?"
     )
     card = AgentCard(
         name=f"A2A lab {agent}",
@@ -49,13 +63,13 @@ def build_agent_card(agent: AgentName, settings: Settings) -> AgentCard:
         default_output_modes=["application/json"],
         skills=[
             AgentSkill(
-                id=SKILLS[agent],
+                id=required_skill_id(agent, settings),
                 name=f"Engineering {agent}",
                 description=description,
                 tags=["engineering", "synthetic"],
                 examples=[
-                    "What information should our service runbook contain?",
-                    "[slow] Explain security.",
+                    question,
+                    f"[slow] {question}",
                     "[fail] Exercise a controlled failure.",
                 ],
                 input_modes=["text/plain"],

@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     max_input_characters: int = Field(default=1000, ge=1, le=16000)
     coordinator_port: int = Field(default=8101, ge=1, le=65535)
     knowledge_port: int = Field(default=8102, ge=1, le=65535)
+    knowledge_workflow: Literal["notes", "release-readiness"] = "notes"
     max_payload_bytes: int = Field(default=65536, ge=1024, le=1048576)
     max_concurrent_requests: int = Field(default=4, ge=1, le=32)
     startup_timeout_seconds: float = Field(default=15, gt=0, le=120, allow_inf_nan=False)
