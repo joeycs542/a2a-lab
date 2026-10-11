@@ -1,0 +1,91 @@
+name: a2a-lab
+
+x-runtime: &runtime
+  image: a2a-lab:local
+  pull_policy: never
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  mem_limit: 256m
+  cpus: 1
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=16m,uid=10001,gid=10001,mode=0700
+
+services:
+  credential-init:
+    <<: *runtime
+    entrypoint: [python, -m, a2a_lab.container_credentials]
+    network_mode: none
+    volumes:
+      - operator-credentials:/credentials/operator
+      - coordinator-credentials:/credentials/coordinator
+      - knowledge-credentials:/credentials/knowledge
+
+  knowledge:
+    <<: *runtime
+    build:
+      context: .
+      target: runtime
+    command: [serve, knowledge]
+    environment:
+      A2A_LAB_PROFILE: local-secure
+      A2A_LAB_CREDENTIALS_DIRECTORY: /credentials/knowledge
+    depends_on:
+      credential-init:
+        condition: service_completed_successfully
+    volumes:
+      - knowledge-credentials:/credentials/knowledge:ro
+    networks: [lab]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8102/.well-known/agent-card.json', timeout=2).close()"]
+      interval: 3s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
+  coordinator:
+    <<: *runtime
+    command: [serve, coordinator]
+    environment:
+      A2A_LAB_PROFILE: local-secure
+      A2A_LAB_CREDENTIALS_DIRECTORY: /credentials/coordinator
+    network_mode: service:knowledge
+    depends_on:
+      knowledge:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - coordinator-credentials:/credentials/coordinator:ro
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8101/.well-known/agent-card.json', timeout=2).close()"]
+      interval: 3s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
+  client:
+    <<: *runtime
+    profiles: [tools]
+    command: [call]
+    environment:
+      A2A_LAB_PROFILE: local-secure
+      A2A_LAB_CREDENTIALS_DIRECTORY: /credentials/operator
+    network_mode: service:knowledge
+    depends_on:
+      coordinator:
+        condition: service_healthy
+    volumes:
+      - operator-credentials:/credentials/operator:ro
+      - operator-work:/work
+
+networks:
+  lab:
+    internal: true
+
+volumes:
+  operator-credentials:
+  coordinator-credentials:
+  knowledge-credentials:
+  operator-work:

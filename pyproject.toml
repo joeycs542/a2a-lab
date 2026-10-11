@@ -31,6 +31,10 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/a2a_lab"]
 
+[tool.uv]
+# Install independent package files rather than filesystem clones of the cache.
+link-mode = "copy"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
