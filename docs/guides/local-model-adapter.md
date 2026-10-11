@@ -1,7 +1,8 @@
 # Local model adapter boundary
 
 Status: Design guidance. No model or inference adapter is installed by this lab.
-Runtime-specific selection/setup is M5 guidance or an explicit optional extension.
+The [runtime/setup guide](local-model-integration.md) supplies M5 selection and
+setup guidance. Actual model integration remains an explicit optional extension.
 The required path remains deterministic, without model credentials.
 
 ## Integration point

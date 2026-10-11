@@ -2,9 +2,11 @@
 
 An engineering lab for the Agent2Agent (A2A) protocol, reusable Python agent boilerplate, and secure delegation.
 
-M1 through M4 are implemented. Run two independent local agents that discover each other through Agent Cards and delegate over real A2A HTTP. The knowledge role serves engineering notes or the worked release-readiness fixture; the coordinator performs one approved lookup and composes the result. The authenticated profile adds owner-scoped tasks, cancellation, and a separate human approval exercise. No model account or paid API key is required.
+M1 through M5 are complete. Run two independent local agents that discover each other through Agent Cards and delegate over real A2A HTTP. The knowledge role serves engineering notes or the worked release-readiness fixture; the coordinator performs one approved lookup and composes the result. The authenticated profile adds owner-scoped tasks, cancellation, and a separate human approval exercise. No model account or paid API key is required.
 
 The [project constitution](docs/constitution.md) governs contributors and coding agents. The M1 SDK probe and original unauthenticated loopback demo remain available. The [reuse guide](docs/guides/boilerplate.md), repository coding skills, [workflow extension](labs/04-boilerplate-extension/README.md), and [Agent Card exercise](labs/05-agent-cards/README.md) provide the M4 extension path.
+
+The [security evidence](docs/security.md), [90-minute workshop](docs/guides/workshop.md), and [local model integration guide](docs/guides/local-model-integration.md) complete the M5 teaching path. The workshop includes a separate timing override for manual cancellation; remote deployment and inference remain later integrations. M6 verification/CI and handoff remain next.
 
 ## Run with Docker
 
@@ -166,7 +168,7 @@ Each process has its own bounded in-memory SDK task store; restart loses it. Tas
 
 The repository contains [a2a-implementation](.agents/skills/a2a-implementation/SKILL.md) and [a2a-agent-card](.agents/skills/a2a-agent-card/SKILL.md) coding skills. They guide engineering work and reference the constitution; runtime Agent Card skills describe callable behavior. Keep SDK types at the A2A boundary. Django/MCP and the supply chain sample remain optional later work.
 
-The [local model adapter design](docs/guides/local-model-adapter.md) identifies the application port and required policy, output, budget, and cancellation controls. Detailed runtime/hardware selection and setup guidance remains M5 work. Actual model integration is optional; current agents use fixtures with no downloaded models.
+The [local model adapter design](docs/guides/local-model-adapter.md) identifies the application port and required policy, output, budget, and cancellation controls. The [runtime and setup guide](docs/guides/local-model-integration.md) covers optional Ollama/llama.cpp acquisition, local serving, hardware measurement and adapter evaluation. Actual model integration is optional; current agents use fixtures with no downloaded models.
 
 ## Verification
 

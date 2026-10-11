@@ -5,6 +5,11 @@ authorizes one exact synthetic commitment. The two Python agents still use
 bundled notes, with no model or paid API. Follow the repository [setup](../../README.md)
 and its non-editable installation fallback when needed.
 
+For Docker, follow the [workshop runbook](../../docs/guides/workshop.md). It provides
+the complete task/approval exercise inside an operator container, a named project,
+and an optional bounded timing override for manual cancellation. The host commands
+below remain available for a reliably installed native environment.
+
 ## Generate credentials and run the profile
 
 From the code repository, once per fresh private credential directory:
