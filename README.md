@@ -2,9 +2,9 @@
 
 An engineering lab for the Agent2Agent (A2A) protocol, reusable Python agent boilerplate, and secure delegation.
 
-M1 and M2 are implemented. Run two independent local agents that discover each other through Agent Cards and delegate over real A2A HTTP. The knowledge agent answers from bundled synthetic engineering notes; the coordinator performs one approved lookup and composes the result. No model account or paid API key is required.
+M1 through M3 are implemented. Run two independent local agents that discover each other through Agent Cards and delegate over real A2A HTTP. The knowledge agent answers from bundled synthetic engineering notes; the coordinator performs one approved lookup and composes the result. The authenticated profile adds owner-scoped tasks, cancellation, and a separate human approval exercise. No model account or paid API key is required.
 
-The [project constitution](docs/constitution.md) governs contributors and future coding agents. The M1 SDK probe remains available for diagnostics. Authentication, task ownership, cancellation exercises, and human approval controls follow in M3.
+The [project constitution](docs/constitution.md) governs contributors and future coding agents. The M1 SDK probe and original unauthenticated loopback demo remain available. Coding agent skills and the reusable extension exercise follow in M4.
 
 ## Setup and foundation check
 
@@ -46,6 +46,37 @@ Stop manually served agents with Ctrl+C. Use matching configuration in all termi
 
 Try the [first lab exercise](labs/01-local-delegation/README.md) for card inspection, failure cases, and security review. The [M2 decision record](docs/decisions/0002-local-delegation.md) explains the tested boundaries and limitations.
 
+## Run the authenticated local profile
+
+Generate private teaching credentials once, then run the supervised demo:
+
+```sh
+uv run a2a-lab init-security
+uv run a2a-lab demo --secure
+```
+
+Credentials are generated under `.runtime/security`, which is ignored by Git. Files use mode 0600 in a private directory, values are not printed, and existing credentials are never overwritten. Their default lifetime is one hour. To rotate them, generate a new directory with `init-security --directory`, set `A2A_LAB_CREDENTIALS_DIRECTORY` to its absolute path, and restart both servers with that setting.
+
+For manual serving and task commands, set `A2A_LAB_PROFILE=local-secure` in every terminal. The CLI operator holds the synthetic Alice and Bob accounts; `--as bob` selects Bob's credential. The coordinator instead holds only its outbound knowledge-service credentials, bound to the verified represented user. It does not forward the caller's token. Human-control credentials are distinct and cannot make A2A calls.
+
+```sh
+export A2A_LAB_PROFILE=local-secure
+uv run a2a-lab serve knowledge
+# In another terminal with the same profile:
+uv run a2a-lab serve coordinator
+# In a third terminal with the same profile:
+uv run a2a-lab call --async --text "[slow] What belongs in a runbook?"
+uv run a2a-lab task get TASK_ID
+uv run a2a-lab task cancel TASK_ID
+uv run a2a-lab task get TASK_ID --as bob
+```
+
+Replace `TASK_ID` with the returned ID. Alice can retrieve and cancel her own task; Bob is denied. `[slow]` delays the knowledge fixture by the configured duration; `[fail]` produces a controlled failed task. The authenticated coordinator tracks its delegated task and attempts cancellation when interrupted or out of budget. Cancellation is verified over live HTTP for the supplied cooperative workflows; an unavailable peer or lost start response can still leave the remote outcome unknown.
+
+Follow [Lab 3](labs/03-secure-delegation/README.md) for the exact-term proposal, human approval, and single-release exercise. Its fixed destination is a local JSON display receipt, not procurement or external publication. The [M3 decision record](docs/decisions/0003-authenticated-lifecycle.md) describes identity scopes, cancellation ordering, approval integrity, and the tested limits.
+
+Both profiles bind only to loopback. `local-secure` teaches caller authentication and application authorization; it does not provide TLS, signed server identity, OS process isolation, or an external identity provider. The operator can simulate all teaching accounts because it holds their credentials.
+
 ## Run the probe over local HTTP
 
 In one terminal:
@@ -70,8 +101,8 @@ Defaults work without a configuration file. To use a local file, copy `.env.exam
 
 | Setting | Behavior |
 | --- | --- |
-| `A2A_LAB_PROFILE` | Only the synthetic `local-demo` profile is supported. |
-| `A2A_LAB_HOST` | Only `127.0.0.1` or `::1`; the unauthenticated server cannot bind publicly through these settings. |
+| `A2A_LAB_PROFILE` | `local-demo` is the unauthenticated default; `local-secure` uses generated recipient-bound credentials. |
+| `A2A_LAB_HOST` | Only `127.0.0.1` or `::1`; both profiles are restricted to loopback. |
 | `A2A_LAB_PORT` | Probe port from 1 through 65535; default 8100. |
 | `A2A_LAB_COORDINATOR_PORT` | Coordinator port; default 8101. Must differ from the knowledge port. |
 | `A2A_LAB_KNOWLEDGE_PORT` | Approved knowledge-agent port; default 8102. |
@@ -81,10 +112,15 @@ Defaults work without a configuration file. To use a local file, copy `.env.exam
 | `A2A_LAB_MAX_CONCURRENT_REQUESTS` | Active HTTP request and workflow execution limits per agent, from 1 through 32; default 4. |
 | `A2A_LAB_STARTUP_TIMEOUT_SECONDS` | Finite readiness deadline from greater than 0 through 120 seconds; default 15. |
 | `A2A_LAB_SHUTDOWN_TIMEOUT_SECONDS` | Finite graceful wait from greater than 0 through 30 seconds; default 3, followed by force-killing a remaining owned child. |
+| `A2A_LAB_CREDENTIALS_DIRECTORY` | Private generated configuration; default `.runtime/security`, resolved to an absolute path. |
+| `A2A_LAB_FIXTURE_DELAY_SECONDS` | Delay for `[slow]` requests from 0 through 60 seconds; default 2. |
+| `A2A_LAB_MAX_TASK_POLLS` | Poll budget from 1 through 1000; default 100. One send, bounded reads, and no send retries. |
+| `A2A_LAB_MAX_RETAINED_TASKS` | Global retained-task cap per agent from 1 through 10000; default 128. At capacity, new records are rejected. |
+| `A2A_LAB_MAX_APPROVAL_RECORDS` | Cap for each proposal/grant/receipt collection from 1 through 10000; default 128. |
 
-This profile uses plain HTTP without authentication and is restricted to synthetic loopback exercises. M2 validates cards and structured peer output, permits only exact configured outbound URLs, rejects redirects and compressed peer responses, and bounds bodies, concurrent work, and deadlines. The coordinator makes one peer call without retries. These controls do not authenticate another local process or establish resource ownership.
+The required demo uses synthetic loopback HTTP. Both profiles validate cards and structured peer output, permit only exact configured outbound URLs, reject redirects and compressed peer responses, and bound bodies, concurrency, time, and retained records. The authenticated profile enforces identity, role, and resource ownership on each request. A credential or card cannot widen the configured peer destinations. Best-effort cancellation cleanup has an additional one-second maximum client budget.
 
-Each process has its own in-memory SDK task store; restart loses it. Stored-task retention is not bounded in M2. SDK task routes are present, but the task retrieval, cancellation, delegated cancellation, and approval teaching contracts remain M3 work. Local timeouts do not guarantee that a remote task was cancelled. Streaming, push notifications, extended cards, registries, and model integrations are not part of M2.
+Each process has its own bounded in-memory SDK task store; restart loses it. Tasks are scoped by acting identity and represented user in `local-secure`; `local-demo` has a shared anonymous scope. Task retrieval, listing, and cancellation use the SDK. Completed tasks cannot be continued through the lab API. Proposal, approval, and receipt state is also bounded and ephemeral; record caps reject new work without discarding replay evidence. Streaming, push notifications, extended cards, registries, and model integrations remain outside the implemented lab.
 
 ## Repository responsibilities
 
@@ -97,12 +133,16 @@ Each process has its own in-memory SDK task store; restart loses it. Stored-task
 | `src/a2a_lab/agents` | Deterministic coordinator, knowledge workflow, and packaged notes. |
 | `src/a2a_lab/domain` | Validated application results and the narrow knowledge-provider port. |
 | `src/a2a_lab/a2a` | Typed cards, SDK lifecycle, boundary limits, discovery, and delegation. |
+| `src/a2a_lab/security` | Recipient-bound identity, explicit HTTP permissions, and atomic synthetic approval/release state. |
 | `docs/constitution.md` | Project rules, Python style, contributor workflow, and OWASP agent security. |
 | `docs/decisions` | Tested compatibility choices and limitations. |
 | `labs/01-local-delegation` | First runnable teaching exercise. |
+| `labs/03-secure-delegation` | Authenticated task lifecycle and exact human approval exercise. |
 | `tests` | Configuration, workflows, protocol contracts, limits, and real-process integration. |
 
-Authenticated security adapters, coding skills, and later exercises will be added in their implementation milestones. Keep SDK wire types in the A2A package and domain behavior independent of transport. Django/MCP and the supply chain sample remain optional later work.
+Coding skills and later exercises will be added in their implementation milestones. Keep SDK wire types in the A2A package and domain behavior independent of transport. Django/MCP and the supply chain sample remain optional later work.
+
+Local model integration guidance is planned for M4/M5: choosing a runtime and model for the available hardware, local serving, adapter wiring, output validation, and security/evaluation checks. A model adapter will connect behind an application interface while preserving A2A and policy boundaries. Actual model integration remains optional; the current agents use fixtures and have no downloaded models.
 
 ## Verification
 
@@ -113,7 +153,7 @@ uv run mypy src
 uv run pytest
 ```
 
-The tests cover the M1 foundation plus M2 discovery/delegation, structured artifacts, malformed or incompatible cards, capability mismatch, redirects, payload and concurrency limits, and deadlines. Integration tests start owned loopback servers, verify separate processes, and check cleanup after success, unavailable peers, port collisions, startup failure, timeout, and interruption. Loopback networking is required for those integration tests. They do not establish the later authenticated security profile.
+Tests cover configuration, discovery/delegation, typed artifacts, unsafe cards/destinations, payload and concurrency limits, deadlines, and owned-process cleanup. M3 adds invalid/expired/wrong-recipient credentials, owner-scoped results and cancellation, delegated identity, late-result prevention, polling/retention budgets, and missing/changed/expired/concurrent/replayed approvals. Live HTTP tests verify authenticated delegation, downstream cancellation, and the synthetic release flow. These are deterministic policy checks; they do not evaluate an LLM's resistance to prompt injection. Loopback networking is required for integration tests.
 
 ## macOS editable import troubleshooting
 

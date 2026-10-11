@@ -1,15 +1,16 @@
 """Validated settings for synthetic, loopback-only lab agents."""
 
+from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 RPC_PATH = "/a2a/jsonrpc"
 
 
 class Settings(BaseSettings):
-    """The local demo has no authenticated or network deployment profile."""
+    """Both local profiles bind to loopback; neither is a network deployment."""
 
     model_config = SettingsConfigDict(
         env_prefix="A2A_LAB_",
@@ -20,7 +21,7 @@ class Settings(BaseSettings):
         validate_default=True,
     )
 
-    profile: Literal["local-demo"] = "local-demo"
+    profile: Literal["local-demo", "local-secure"] = "local-demo"
     host: Literal["127.0.0.1", "::1"] = "127.0.0.1"
     port: int = Field(default=8100, ge=1, le=65535)
     request_timeout_seconds: float = Field(default=5, gt=0, le=300, allow_inf_nan=False)
@@ -31,6 +32,17 @@ class Settings(BaseSettings):
     max_concurrent_requests: int = Field(default=4, ge=1, le=32)
     startup_timeout_seconds: float = Field(default=15, gt=0, le=120, allow_inf_nan=False)
     shutdown_timeout_seconds: float = Field(default=3, gt=0, le=30, allow_inf_nan=False)
+    credentials_directory: Path = Path(".runtime/security")
+    fixture_delay_seconds: float = Field(default=2, ge=0, le=60, allow_inf_nan=False)
+    max_task_polls: int = Field(default=100, ge=1, le=1000)
+    max_retained_tasks: int = Field(default=128, ge=1, le=10000)
+    max_approval_records: int = Field(default=128, ge=1, le=10000)
+
+    @field_validator("credentials_directory")
+    @classmethod
+    def absolute_credentials_directory(cls, value: Path) -> Path:
+        """Keep subprocess working directories from changing credential lookup."""
+        return value.expanduser().resolve()
 
     @model_validator(mode="after")
     def distinct_agent_ports(self) -> "Settings":

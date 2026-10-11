@@ -3,7 +3,16 @@
 from importlib.metadata import version
 from typing import Literal
 
-from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
+from a2a.types import (
+    AgentCapabilities,
+    AgentCard,
+    AgentInterface,
+    AgentSkill,
+    HTTPAuthSecurityScheme,
+    SecurityRequirement,
+    SecurityScheme,
+    StringList,
+)
 
 from a2a_lab.a2a.protocol import PROTOCOL_VERSION
 from a2a_lab.config import RPC_PATH, Settings
@@ -22,9 +31,9 @@ def build_agent_card(agent: AgentName, settings: Settings) -> AgentCard:
         if agent == "coordinator"
         else "Match engineering questions to bundled synthetic notes."
     )
-    return AgentCard(
+    card = AgentCard(
         name=f"A2A lab {agent}",
-        description=f"{description} Unauthenticated synthetic loopback demo.",
+        description=f"{description} Synthetic {settings.profile} loopback profile.",
         version=version("a2a-lab"),
         supported_interfaces=[
             AgentInterface(
@@ -44,9 +53,27 @@ def build_agent_card(agent: AgentName, settings: Settings) -> AgentCard:
                 name=f"Engineering {agent}",
                 description=description,
                 tags=["engineering", "synthetic"],
-                examples=["What information should our service runbook contain?"],
+                examples=[
+                    "What information should our service runbook contain?",
+                    "[slow] Explain security.",
+                    "[fail] Exercise a controlled failure.",
+                ],
                 input_modes=["text/plain"],
                 output_modes=["application/json"],
             )
         ],
     )
+    if settings.profile == "local-secure":
+        card.security_schemes["localBearer"].CopyFrom(
+            SecurityScheme(
+                http_auth_security_scheme=HTTPAuthSecurityScheme(
+                    scheme="bearer",
+                    bearer_format="opaque",
+                    description="Locally issued recipient-bound credential.",
+                )
+            )
+        )
+        card.security_requirements.append(
+            SecurityRequirement(schemes={"localBearer": StringList()})
+        )
+    return card

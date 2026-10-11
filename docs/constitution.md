@@ -1,6 +1,7 @@
 # A2A lab project constitution
 
-Version: 0.2  
+Version: 0.3
+
 Updated: 11 October 2026  
 Purpose: Project, design, and coding rules for contributors and future coding agents
 
@@ -91,7 +92,7 @@ Verify acting identity and enforce access on each implemented operation and reso
 
 Allow only the tools, peer destinations, and resources needed by an agent's role. Keep credentials intended for one recipient from being passed to another. Define delegated authority explicitly. Enforce policies in the execution component, outside agent reasoning.
 
-Review evidence: caller/resource denial tests, credential audience checks, and destination/tool policy tests. The authenticated profile and these exercises arrive in M3.
+Review evidence: caller/resource denial tests, credential audience checks, and destination/tool policy tests. The M3 [authenticated lifecycle decision](decisions/0003-authenticated-lifecycle.md) records the implemented local profile and its limits. New HTTP routes must receive explicit role/method permission; do not let them inherit authority from authentication alone.
 
 ## Untrusted input and protected context
 
