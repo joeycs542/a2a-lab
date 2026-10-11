@@ -1,9 +1,9 @@
 """Answer engineering questions using only bundled synthetic notes."""
 
-import asyncio
 import re
 from importlib.resources import files
 
+from a2a_lab.agents.fixtures import apply_fixture_controls
 from a2a_lab.domain.models import Answer, Reference
 
 NOTES = (
@@ -31,10 +31,7 @@ class KnowledgeAgent:
 
     async def answer(self, question: str) -> Answer:
         """Return matching notes with stable fixture references."""
-        if question.startswith("[fail]"):
-            raise ValueError("Synthetic controlled failure.")
-        if question.startswith("[slow]"):
-            await asyncio.sleep(self._delay_seconds)
+        await apply_fixture_controls(question, self._delay_seconds)
         words = frozenset(re.findall(r"[a-z]+", question.lower()))
         matches = [(key, title) for key, title, keywords in NOTES if words & keywords]
         if not matches:

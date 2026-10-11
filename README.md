@@ -2,9 +2,9 @@
 
 An engineering lab for the Agent2Agent (A2A) protocol, reusable Python agent boilerplate, and secure delegation.
 
-M1 through M3 are implemented. Run two independent local agents that discover each other through Agent Cards and delegate over real A2A HTTP. The knowledge agent answers from bundled synthetic engineering notes; the coordinator performs one approved lookup and composes the result. The authenticated profile adds owner-scoped tasks, cancellation, and a separate human approval exercise. No model account or paid API key is required.
+M1 through M4 are implemented. Run two independent local agents that discover each other through Agent Cards and delegate over real A2A HTTP. The knowledge role serves engineering notes or the worked release-readiness fixture; the coordinator performs one approved lookup and composes the result. The authenticated profile adds owner-scoped tasks, cancellation, and a separate human approval exercise. No model account or paid API key is required.
 
-The [project constitution](docs/constitution.md) governs contributors and future coding agents. The M1 SDK probe and original unauthenticated loopback demo remain available. Coding agent skills and the reusable extension exercise follow in M4.
+The [project constitution](docs/constitution.md) governs contributors and coding agents. The M1 SDK probe and original unauthenticated loopback demo remain available. The [reuse guide](docs/guides/boilerplate.md), repository coding skills, [workflow extension](labs/04-boilerplate-extension/README.md), and [Agent Card exercise](labs/05-agent-cards/README.md) provide the M4 extension path.
 
 ## Run with Docker
 
@@ -129,6 +129,7 @@ Defaults work without a configuration file. To use a local file, copy `.env.exam
 | `A2A_LAB_PORT` | Probe port from 1 through 65535; default 8100. |
 | `A2A_LAB_COORDINATOR_PORT` | Coordinator port; default 8101. Must differ from the knowledge port. |
 | `A2A_LAB_KNOWLEDGE_PORT` | Approved knowledge-agent port; default 8102. |
+| `A2A_LAB_KNOWLEDGE_WORKFLOW` | `notes` is the default; `release-readiness` selects the worked extension. Use the same choice in servers and clients. |
 | `A2A_LAB_REQUEST_TIMEOUT_SECONDS` | Finite timeout from greater than 0 through 300 seconds; default 5. Bounds each body read and workflow. A client exchange has a total deadline of twice this value. |
 | `A2A_LAB_MAX_INPUT_CHARACTERS` | Maximum input length from 1 through 16000 characters; default 1000. |
 | `A2A_LAB_MAX_PAYLOAD_BYTES` | Inbound request and outbound request/response byte limit from 1024 through 1048576; default 65536. Independent of the text character limit. |
@@ -163,9 +164,9 @@ Each process has its own bounded in-memory SDK task store; restart loses it. Tas
 | `labs/03-secure-delegation` | Authenticated task lifecycle and exact human approval exercise. |
 | `tests` | Configuration, workflows, protocol contracts, limits, and real-process integration. |
 
-Coding skills and later exercises will be added in their implementation milestones. Keep SDK wire types in the A2A package and domain behavior independent of transport. Django/MCP and the supply chain sample remain optional later work.
+The repository contains [a2a-implementation](.agents/skills/a2a-implementation/SKILL.md) and [a2a-agent-card](.agents/skills/a2a-agent-card/SKILL.md) coding skills. They guide engineering work and reference the constitution; runtime Agent Card skills describe callable behavior. Keep SDK types at the A2A boundary. Django/MCP and the supply chain sample remain optional later work.
 
-Local model integration guidance is planned for M4/M5: choosing a runtime and model for the available hardware, local serving, adapter wiring, output validation, and security/evaluation checks. A model adapter will connect behind an application interface while preserving A2A and policy boundaries. Actual model integration remains optional; the current agents use fixtures and have no downloaded models.
+The [local model adapter design](docs/guides/local-model-adapter.md) identifies the application port and required policy, output, budget, and cancellation controls. Detailed runtime/hardware selection and setup guidance remains M5 work. Actual model integration is optional; current agents use fixtures with no downloaded models.
 
 ## Verification
 

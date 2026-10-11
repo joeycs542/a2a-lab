@@ -103,13 +103,15 @@ expire after one hour, including while containers are stopped. To reset an expir
 or partial setup for a new lab session:
 
 ```sh
-docker compose down --volumes
+docker compose --profile tools down --volumes
 docker compose up --build -d --wait
 ```
 
 The reset deletes this Compose project's credential volumes **and saved `/work`
 proposal/approval files**. It does not delete repository files or host credentials.
 It is deliberate reset of synthetic lab state, not silent credential renewal.
+Selecting `tools` includes the client-only `/work` volume in teardown; without
+that profile, Compose may retain it even when `--volumes` is specified.
 
 ## Verify the image
 

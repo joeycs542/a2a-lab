@@ -1,6 +1,6 @@
 # A2A lab project constitution
 
-Version: 0.3
+Version: 0.4
 
 Updated: 11 October 2026  
 Purpose: Project, design, and coding rules for contributors and future coding agents
@@ -72,7 +72,7 @@ Publish accurate typed cards describing only implemented interfaces, content mod
 
 Use stable capability identifiers and examples that match observed behavior. Validate inputs and outputs, reject unsupported content, and handle protocol errors through the SDK. Keep secrets, private policy, and sensitive configuration out of cards.
 
-Coding agent `SKILL.md` files guide engineering work. Agent Card skills advertise runtime capabilities. Neither grants an execution permission.
+Coding agent `SKILL.md` files guide engineering work. Agent Card skills advertise runtime capabilities. Neither grants an execution permission. The repository's implementation and card skills reference this constitution. Select workflows from validated startup settings, and keep the served capability and trusted client expectation consistent with that selection; messages cannot switch implementations or broaden authority.
 
 Review evidence: served-card validation, capability checks, contract failure cases, and disclosure review.
 

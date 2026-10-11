@@ -1,0 +1,4 @@
+interface:
+  display_name: "A2A Agent Card"
+  short_description: "Define accurate cards for the pinned A2A SDK"
+  default_prompt: "Use $a2a-agent-card to review or update this agent card against the implemented behavior and configured profile."

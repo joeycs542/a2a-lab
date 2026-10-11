@@ -14,6 +14,7 @@ from a2a_lab.config import Settings
         {"host": "0.0.0.0"},
         {"host": "192.168.1.2"},
         {"profile": "production"},
+        {"knowledge_workflow": "arbitrary-plugin"},
         {"port": 0},
         {"port": 65536},
         {"port": "not-a-port"},

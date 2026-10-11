@@ -7,6 +7,7 @@ from a2a_lab.a2a.client import PeerClient
 from a2a_lab.a2a.server import console_trace, create_agent_app
 from a2a_lab.agents.coordinator import CoordinatorAgent
 from a2a_lab.agents.knowledge import KnowledgeAgent
+from a2a_lab.agents.readiness import ReleaseReadinessAgent
 from a2a_lab.config import Settings
 from a2a_lab.domain.ports import KnowledgeLookup
 from a2a_lab.security.identity import load_server_keys
@@ -20,9 +21,11 @@ def build_app(agent: AgentName, settings: Settings) -> Starlette:
         if settings.profile == "local-secure"
         else None
     )
-    workflow: KnowledgeLookup = (
-        KnowledgeAgent(settings.fixture_delay_seconds)
-        if agent == "knowledge"
-        else CoordinatorAgent(PeerClient(settings, "knowledge", trace, server_keys=keys))
-    )
+    workflow: KnowledgeLookup
+    if agent == "coordinator":
+        workflow = CoordinatorAgent(PeerClient(settings, "knowledge", trace, server_keys=keys))
+    elif settings.knowledge_workflow == "release-readiness":
+        workflow = ReleaseReadinessAgent(settings.fixture_delay_seconds)
+    else:
+        workflow = KnowledgeAgent(settings.fixture_delay_seconds)
     return create_agent_app(agent, settings, workflow, trace, keys=keys)
