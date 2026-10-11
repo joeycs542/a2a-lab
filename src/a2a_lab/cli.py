@@ -17,10 +17,13 @@ from pydantic import ValidationError
 
 from a2a_lab.a2a.client import LookupFailure, PeerClient
 from a2a_lab.a2a.control_client import control_request
+from a2a_lab.a2a.directory import DirectoryClient
 from a2a_lab.a2a.probe import create_probe_app, verify_in_process, verify_sdk
 from a2a_lab.bootstrap import build_app
 from a2a_lab.config import Settings
 from a2a_lab.demo import DEFAULT_QUESTION, DemoFailure, run_demo
+from a2a_lab.domain.discovery import SearchRequest, topic_scores
+from a2a_lab.domain.roles import AGENTS, services_for
 from a2a_lab.security.approval import (
     ApprovalRequest,
     ExecutionRequest,
@@ -29,6 +32,7 @@ from a2a_lab.security.approval import (
     ReleaseTerms,
 )
 from a2a_lab.security.identity import SecurityError, initialize_security
+from a2a_lab.web.server import create_web_app
 
 
 def _validate_listener(fd: int, settings: Settings, port: int) -> bool:
@@ -51,32 +55,40 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Local A2A engineering lab")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor", help="Validate and display the synthetic local configuration")
+    commands.add_parser("serve-web", help="Run the local operator browser interface")
     commands.add_parser("serve-probe", help="Run the loopback-only M1 SDK probe")
     check = commands.add_parser("check-sdk", help="Resolve and invoke the SDK compatibility probe")
     check.add_argument("--live", action="store_true", help="Call a running serve-probe over HTTP")
     serve = commands.add_parser("serve", help="Run an independent local agent")
-    serve.add_argument("agent", choices=["coordinator", "knowledge"])
+    serve.add_argument("agent", choices=services_for("discovery"))
     serve.add_argument("--port", type=int, help="Override this agent's configured port")
     serve.add_argument("--socket-fd", type=int, help=argparse.SUPPRESS)
     call = commands.add_parser("call", help="Discover and call a running approved agent")
-    call.add_argument("--agent", choices=["coordinator", "knowledge"], default="coordinator")
+    call.add_argument("--agent", choices=AGENTS, default="coordinator")
     call.add_argument("--text", default=DEFAULT_QUESTION)
     call.add_argument("--as", choices=["alice", "bob"], dest="owner", default="alice")
     call.add_argument(
         "--async", action="store_true", dest="background", help="Start a task and return its ID"
     )
-    demo = commands.add_parser("demo", help="Start both agents, delegate over HTTP, and stop them")
+    demo = commands.add_parser("demo", help="Start the selected agents, delegate, and stop them")
     demo.add_argument("--text", default=DEFAULT_QUESTION)
     demo.add_argument("--secure", action="store_true", help="Use generated local credentials")
+    demo.add_argument("--discovery", action="store_true", help="Run authenticated catalog routing")
+    discover = commands.add_parser(
+        "discover", help="Search approved catalog and validate live cards"
+    )
+    discover.add_argument("--text", default=DEFAULT_QUESTION)
+    discover.add_argument("--as", choices=["alice", "bob"], dest="owner", default="alice")
     initialize = commands.add_parser(
         "init-security", help="Create private local teaching credentials"
     )
     initialize.add_argument("--directory", type=Path)
+    initialize.add_argument("--discovery", action="store_true")
     initialize.add_argument("--ttl-seconds", type=int, default=3600)
     tasks = commands.add_parser("task", help="Retrieve, list, or cancel agent tasks")
     tasks.add_argument("operation", choices=["get", "list", "cancel"])
     tasks.add_argument("task_id", nargs="?")
-    tasks.add_argument("--agent", choices=["coordinator", "knowledge"], default="coordinator")
+    tasks.add_argument("--agent", choices=AGENTS, default="coordinator")
     tasks.add_argument("--as", choices=["alice", "bob"], dest="owner", default="alice")
     action = commands.add_parser(
         "action", help="Propose, explicitly approve, or execute a synthetic fixture release"
@@ -103,6 +115,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         if args.command == "demo" and args.secure:
             overrides["profile"] = "local-secure"
+        if args.command in {"demo", "init-security"} and args.discovery:
+            overrides.update(topology="discovery", profile="local-secure")
         settings = Settings(**overrides)
     except ValidationError as error:
         print("Invalid lab configuration:", file=sys.stderr)
@@ -113,7 +127,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "init-security":
         try:
-            initialize_security(args.directory or settings.credentials_directory, args.ttl_seconds)
+            initialize_security(
+                args.directory or settings.credentials_directory,
+                args.ttl_seconds,
+                topology=settings.topology,
+            )
         except (SecurityError, OSError) as error:
             print(
                 f"Could not create new credentials ({type(error).__name__}). "
@@ -135,6 +153,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 indent=2,
             )
         )
+    elif args.command == "serve-web":
+        try:
+            app = create_web_app(settings)
+        except (SecurityError, ValueError, OSError):
+            print(
+                "Browser configuration unavailable; use authenticated discovery credentials.",
+                file=sys.stderr,
+            )
+            return 2
+        uvicorn.run(
+            app,
+            host="0.0.0.0" if settings.web_bind == "container" else settings.host,
+            port=settings.web_port,
+            log_level="warning",
+        )
     elif args.command == "serve-probe":
         if settings.profile != "local-demo":
             print("The M1 compatibility probe requires local-demo.", file=sys.stderr)
@@ -143,7 +176,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             create_probe_app(settings), host=settings.host, port=settings.port, log_level="warning"
         )
     elif args.command == "serve":
-        port = settings.coordinator_port if args.agent == "coordinator" else settings.knowledge_port
+        port = settings.service_port(args.agent)
         if args.socket_fd is not None and not _validate_listener(args.socket_fd, settings, port):
             print(
                 "Invalid supervised listener; it must match the configured loopback endpoint.",
@@ -166,6 +199,46 @@ def main(argv: Sequence[str] | None = None) -> int:
             log_level="warning",
             timeout_graceful_shutdown=int(settings.shutdown_timeout_seconds),
         )
+    elif args.command == "discover":
+
+        def discovery_trace(event: str) -> None:
+            print(event, flush=True)
+
+        async def inspect() -> dict[str, object]:
+            if settings.topology != "discovery":
+                raise SecurityError("Search requires the discovery topology.")
+            if not args.text.strip() or len(args.text) > settings.max_input_characters:
+                raise LookupFailure("Text is empty or exceeds the configured limit.")
+            topics = tuple(topic for topic, score in topic_scores(args.text).items() if score)
+            if not topics:
+                return {"candidates": [], "reason": "no-supported-topic"}
+            async with asyncio.timeout(settings.request_timeout_seconds):
+                result = await DirectoryClient(settings, discovery_trace, owner=args.owner).search(
+                    SearchRequest(topics=topics)
+                )
+                candidates: list[dict[str, object]] = []
+                for candidate in result.candidates:
+                    try:
+                        await PeerClient(
+                            settings, candidate.peer_id, discovery_trace, owner=args.owner
+                        ).discover()
+                        viable = True
+                    except LookupFailure:
+                        viable = False
+                    candidates.append(
+                        {
+                            "peer_id": candidate.peer_id,
+                            "skill_id": candidate.skill_id,
+                            "viable": viable,
+                        }
+                    )
+                return {"candidates": candidates}
+
+        try:
+            print(json.dumps(asyncio.run(inspect()), indent=2))
+        except (LookupFailure, SecurityError, TimeoutError):
+            print("Discovery unavailable or outside approved policy.", file=sys.stderr)
+            return 1
     elif args.command in {"call", "demo"}:
 
         def trace(event: str) -> None:

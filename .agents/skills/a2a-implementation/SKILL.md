@@ -19,9 +19,12 @@ result validation, and approval boundary.
 
 Use the [extension exercise](../../../labs/04-boilerplate-extension/README.md)
 for a fixture workflow. Its validated `knowledge_workflow` setting selects
-behavior in the existing knowledge role. A third peer needs explicit endpoint,
-card, credential-audience, authorization, and process wiring changes. Do not
-silently turn this fixed topology into arbitrary peer discovery.
+behavior in the existing knowledge role. The opt-in discovery topology uses
+fixed specialist roles and a curated authenticated directory; see
+[Lab 6](../../../labs/06-agent-discovery/README.md) and
+[Lab 7](../../../labs/07-interactive-review/README.md). New peers need explicit
+endpoint, card, credential-audience, authorization, process and issuer wiring.
+Directory responses cannot add arbitrary destinations or override startup policy.
 
 Select dependencies from trusted startup settings. Request text and model output
 cannot select credentials, workflows, or destinations. Add working modules for
@@ -36,6 +39,8 @@ use the [local model boundary](../../../docs/guides/local-model-adapter.md).
   never execute generated instructions or approval flags.
 - Retain destination, body, concurrency, deadline, polling, and retention limits.
   Own cancellation and prevent late task/artifact writes.
+- Preserve the constitution's bounded review, partial-outcome and browser/session
+  requirements. Keep trace reads owner-scoped and browser bearers server-side.
 - Bind consequential actions to exact stored actor/resource/terms, revision,
   snapshot, expiry, and consumption; retain idempotent confirmed receipts.
 - Keep credentials and private context out of traces/cards. Docker volumes do

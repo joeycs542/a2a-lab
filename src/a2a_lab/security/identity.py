@@ -11,7 +11,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
-AgentAudience = Literal["coordinator", "knowledge"]
+from a2a_lab.domain.roles import ServiceName, Topology, services_for
+
+AgentAudience = ServiceName
 Owner = Literal["alice", "bob"]
 
 
@@ -84,14 +86,14 @@ class ServerKeys(BaseModel):
                 return record.principal
         raise SecurityError("Authentication failed.")
 
-    def delegated(self, owner: Owner) -> Credential:
+    def delegated(self, owner: Owner, audience: AgentAudience = "knowledge") -> Credential:
         """Choose configured authority; request text cannot change the owner."""
         for credential in self.outbound:
             if (
                 credential.principal.owner == owner
                 and credential.principal.actor == "coordinator"
                 and credential.principal.role == "service"
-                and credential.principal.audience == "knowledge"
+                and credential.principal.audience == audience
             ):
                 return credential
         raise SecurityError("No authorized delegation credential.")
@@ -145,12 +147,15 @@ def load_client_keys(directory: Path) -> ClientKeys:
         raise SecurityError("Local operator credentials are missing or invalid.") from error
 
 
-def initialize_security(directory: Path, ttl_seconds: int = 3600) -> None:
+def initialize_security(
+    directory: Path, ttl_seconds: int = 3600, *, topology: Topology = "baseline"
+) -> None:
     """Create a fresh private directory; never overwrite existing credentials."""
     if not 1 <= ttl_seconds <= 86400:
         raise SecurityError("Credential lifetime must be between 1 and 86400 seconds.")
     directory.mkdir(mode=0o700, parents=True, exist_ok=False)
-    records: dict[AgentAudience, list[dict[str, object]]] = {"coordinator": [], "knowledge": []}
+    audiences = services_for(topology)
+    records: dict[AgentAudience, list[dict[str, object]]] = {a: [] for a in audiences}
     clients: list[dict[str, object]] = []
     delegated: list[dict[str, object]] = []
     expires = time.time() + ttl_seconds
@@ -173,21 +178,24 @@ def initialize_security(directory: Path, ttl_seconds: int = 3600) -> None:
         "bob": "human-bob",
     }
     for owner in ("alice", "bob"):
-        for audience in ("coordinator", "knowledge"):
+        for audience in audiences:
             issue(Principal(actor=owner, owner=owner, role="user", audience=audience), clients)
         issue(
             Principal(actor=humans[owner], owner=owner, role="approver", audience="coordinator"),
             clients,
         )
-        issue(
-            Principal(actor="coordinator", owner=owner, role="service", audience="knowledge"),
-            delegated,
-        )
-    documents = {
-        "clients.json": {"credentials": clients},
-        "coordinator.json": {"verifiers": records["coordinator"], "outbound": delegated},
-        "knowledge.json": {"verifiers": records["knowledge"], "outbound": []},
-    }
+        for audience in audiences:
+            if audience != "coordinator":
+                issue(
+                    Principal(actor="coordinator", owner=owner, role="service", audience=audience),
+                    delegated,
+                )
+    documents: dict[str, object] = {"clients.json": {"credentials": clients}}
+    for audience in audiences:
+        documents[f"{audience}.json"] = {
+            "verifiers": records[audience],
+            "outbound": delegated if audience == "coordinator" else [],
+        }
     for name, content in documents.items():
         descriptor = os.open(directory / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:

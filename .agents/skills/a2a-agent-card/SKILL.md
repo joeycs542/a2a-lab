@@ -22,6 +22,12 @@ expected skill selector when changing behavior, so unsuitable peers are rejected
 before RPC. Card text cannot replace the chosen role/endpoint. Content modes
 must match input validation and typed result artifacts.
 
+For discovery, bind each fixed specialist to its configured capability and
+recipient. The coordinator advertises `engineering-discovery` in single mode
+or `engineering-review` in review mode. Validate that selection on the live
+card; catalog prose cannot change it. Directory search and discovery traces
+are separate application APIs, not extra A2A methods or protocol streaming.
+
 Keep installed application version separate from interface protocol version.
 Derive the one JSON-RPC `1.0` endpoint from `Settings`. Advertise streaming,
 push, extended cards, or signing only after implementing and verifying them.

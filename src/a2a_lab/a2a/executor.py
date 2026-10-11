@@ -12,6 +12,7 @@ from google.protobuf.json_format import ParseDict
 from google.protobuf.struct_pb2 import Value
 
 from a2a_lab.a2a.client import LookupFailure, TraceSink
+from a2a_lab.a2a.traces import TraceStore, captured_trace
 from a2a_lab.config import Settings
 from a2a_lab.domain.models import Answer
 from a2a_lab.domain.ports import KnowledgeLookup
@@ -29,10 +30,17 @@ class _Run:
 class WorkflowExecutor(AgentExecutor):
     """Own child work and use native SDK events for every terminal result."""
 
-    def __init__(self, workflow: KnowledgeLookup, settings: Settings, trace: TraceSink) -> None:
+    def __init__(
+        self,
+        workflow: KnowledgeLookup,
+        settings: Settings,
+        trace: TraceSink,
+        traces: TraceStore | None = None,
+    ) -> None:
         self._workflow = workflow
         self._settings = settings
         self._trace = trace
+        self._traces = traces
         self._active = 0
         self._runs: dict[str, _Run] = {}
 
@@ -68,6 +76,7 @@ class WorkflowExecutor(AgentExecutor):
         ):
             raise InvalidParamsError(message="SDK task identifiers are missing.")
         task_id = context.task_id
+        marker = captured_trace.set(self._traces.start(task_id) if self._traces else None)
         run = _Run()
         self._runs[task_id] = run
         updater = TaskUpdater(event_queue, task_id, context.context_id)
@@ -126,6 +135,7 @@ class WorkflowExecutor(AgentExecutor):
                 run.work.cancel()
                 await asyncio.gather(run.work, return_exceptions=True)
             self._runs.pop(task_id, None)
+            captured_trace.reset(marker)
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         """Stop owned child work before emitting cancellation; prevent late writes."""

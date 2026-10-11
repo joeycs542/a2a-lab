@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import signal
 import socket
@@ -125,7 +126,12 @@ async def test_unavailable_knowledge_peer_is_controlled_and_cleanup_still_runs(
 async def test_cli_interrupt_stops_owned_children(settings: Settings, tmp_path: Path) -> None:
     environment = dict(os.environ)
     environment.update(
-        {f"A2A_LAB_{key.upper()}": str(value) for key, value in settings.model_dump().items()}
+        {
+            f"A2A_LAB_{key.upper()}": (
+                json.dumps(value) if isinstance(value, (list, dict)) else str(value)
+            )
+            for key, value in settings.model_dump(mode="json").items()
+        }
     )
     process = await asyncio.create_subprocess_exec(
         sys.executable,

@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from a2a_lab.config import Settings
+from a2a_lab.domain.roles import Topology, services_for
 from a2a_lab.security.identity import (
     SecurityError,
     initialize_security,
@@ -13,25 +15,22 @@ from a2a_lab.security.identity import (
 )
 
 
-def prepare_credentials(root: Path) -> None:
+def prepare_credentials(root: Path, topology: Topology = "baseline") -> None:
     """Create once or verify a complete, current issuer set; never overwrite it.
 
     The image pre-creates volume mountpoints owned by the unprivileged lab user.
-    Only the initialization container mounts all three writable volumes.
+    Only the initializer mounts the selected topology's complete writable set.
     """
-    destinations = {
-        "clients.json": root / "operator",
-        "coordinator.json": root / "coordinator",
-        "knowledge.json": root / "knowledge",
-    }
+    audiences = services_for(topology)
+    destinations = {"clients.json": root / "operator"}
+    destinations.update({f"{audience}.json": root / audience for audience in audiences})
     paths = [directory / name for name, directory in destinations.items()]
     if any(path.exists() for path in paths):
         clients = load_client_keys(root / "operator")
-        servers = {
-            "coordinator": load_server_keys(root / "coordinator", "coordinator"),
-            "knowledge": load_server_keys(root / "knowledge", "knowledge"),
-        }
-        if len(clients.credentials) != 6 or len(servers["coordinator"].outbound) != 2:
+        servers = {audience: load_server_keys(root / audience, audience) for audience in audiences}
+        if len(clients.credentials) != 2 * len(audiences) + 2 or len(
+            servers["coordinator"].outbound
+        ) != 2 * (len(audiences) - 1):
             raise SecurityError("Container credential set is incomplete.")
         for credential in (*clients.credentials, *servers["coordinator"].outbound):
             principal = servers[credential.principal.audience].authenticate(
@@ -46,7 +45,7 @@ def prepare_credentials(root: Path) -> None:
         directory.chmod(0o700)
     with TemporaryDirectory(prefix="a2a-lab-issuer-") as temporary:
         source = Path(temporary) / "security"
-        initialize_security(source)
+        initialize_security(source, topology=topology)
         for name, directory in destinations.items():
             descriptor = os.open(directory / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(descriptor, "wb") as stream:
@@ -56,7 +55,7 @@ def prepare_credentials(root: Path) -> None:
 def main() -> int:
     """Initialize mounted volumes or report a safe, actionable setup failure."""
     try:
-        prepare_credentials(Path("/credentials"))
+        prepare_credentials(Path("/credentials"), Settings().topology)
     except (SecurityError, OSError):
         print(
             "Container credentials are unavailable, incomplete, or expired. "

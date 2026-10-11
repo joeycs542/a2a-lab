@@ -1,7 +1,7 @@
 # Engineering lab handoff
 
 This repository contains the reusable Python lab, constitution, two coding skills,
-five exercises, security evidence and optional model integration guidance. The
+seven exercises, security evidence and optional model integration guidance. The
 required demos use fixtures; no models, API keys, Django or MCP server are required.
 
 ## First session
@@ -43,12 +43,16 @@ credential and operator-file volumes remain.
 | Exercise identity, cancellation and exact human approval | [Lab 3](../../labs/03-secure-delegation/README.md), [workshop](workshop.md), [security evidence](../security.md). |
 | Extend domain behavior while reusing controls | [Lab 4](../../labs/04-boilerplate-extension/README.md), [reuse guide](boilerplate.md). |
 | Define truthful cards | [Lab 5](../../labs/05-agent-cards/README.md), [Agent Card coding skill](../../.agents/skills/a2a-agent-card/SKILL.md). |
+| Search approved specialists and select one | [Lab 6](../../labs/06-agent-discovery/README.md). |
+| Interact in a browser and review multiple specialists | [Lab 7](../../labs/07-interactive-review/README.md), [discovery decision](../decisions/0009-curated-discovery.md). |
 | Guide future coding agents | [AGENTS.md](../../AGENTS.md), [constitution](../constitution.md), [implementation skill](../../.agents/skills/a2a-implementation/SKILL.md). |
 | Evaluate optional inference later | [Adapter boundary](local-model-adapter.md) and [runtime/setup guide](local-model-integration.md). |
 
 The two workflow choices are `notes` and `release-readiness`. They serve the same
-knowledge network/security role; neither adds a third identity. A searchable
-registry, streaming, callbacks, signed cards and inference remain extensions.
+knowledge network/security role; neither adds a third identity. The opt-in
+discovery topology separately adds three specialist identities and a searchable
+curated directory. Streaming, callbacks, open registration, signed cards and
+inference remain extensions.
 
 ## Contributor and CI checks
 
@@ -80,6 +84,8 @@ checkout action with persisted credentials disabled. It builds the verification
 and installed runtime images, exercises both supervised profiles plus the worked
 extension without external runtime networking, validates Compose overrides, and
 calls independent Compose agents in notes and release-readiness configurations.
+It also exercises directory routing and the browser/review HTTP smoke in a separate
+project, including partial permissions, session isolation, CSRF and cancellation.
 The existing behavioral suite covers positive, denial, failure, cancellation,
 ownership, approval integrity and concurrency paths. Cleanup runs even on failure.
 

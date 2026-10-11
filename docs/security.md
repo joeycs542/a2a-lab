@@ -13,14 +13,16 @@ current behavior to evidence. Run the [workshop](guides/workshop.md) to inspect 
 
 The operator selects a synthetic Alice or Bob credential. Authentication verifies
 actor, represented user, role, recipient, and expiry. Task access is scoped by
-actor and represented user. The coordinator uses its own knowledge-service
+actor and represented user. The coordinator uses its own recipient-specific service
 credential for that represented user; it does not forward the upstream bearer.
 
 Discovery starts with an exact configured loopback destination, then fetches a
 live card. The client validates protocol, binding, expected capability, endpoint,
 content modes, and authentication declaration. A card cannot authorize another
-destination. There is no searchable directory, automatic registration, signed
-card, or TLS server identity. A compromised peer at the allowed endpoint remains
+destination. The opt-in discovery topology adds authenticated curated search;
+independent policy validates every returned ID, capability and URL before card
+fetches. There is no automatic registration, signed card or TLS server identity.
+A compromised peer at the allowed endpoint remains
 a threat. Production transport encryption is required by the
 [A2A 1.0 specification](https://a2a-protocol.org/v1.0.0/specification/#134-general-security-best-practices).
 
@@ -42,11 +44,14 @@ not an OWASP certification. Paths below identify the actual enforcement and test
 | Untrusted input | `config.py`, `a2a/cards.py`, `a2a/client.py`, `domain/models.py`: trusted configuration, contract checks, bounded typed results | `tests/contract/test_local_agents.py`, `tests/contract/test_extension.py` | Injection-like data cannot grant authority; no model robustness measurement. |
 | Context isolation | `a2a/identity.py`, `a2a/store.py`: verified identity and owner-scoped SDK tasks | `test_reads_artifacts_lists_and_cancellation_are_owner_scoped`; `test_untrusted_owner_metadata_cannot_change_identity` | In-memory task isolation; no persistent retrieval/memory system assessed. |
 | Human action integrity | `security/approval.py`, `a2a/actions.py`: exact proposal, separate approver, expiry, snapshot check, atomic consumption and idempotent receipt | `tests/security/test_approval_integrity.py`, `tests/security/test_action_api.py` | Only a synthetic local-display receipt; not physical human authentication or durable business recovery. |
-| Output validation | `domain/models.py`, `a2a/client.py`: one bounded answer artifact and bounded references | `tests/contract/test_local_agents.py`, `tests/contract/test_limits.py` | Shape validation cannot prove correctness; no browser rendering or file execution. |
+| Output validation | `domain/models.py`, `a2a/client.py`, `web/app.js`: one bounded answer artifact, bounded references and text-only rendering | `tests/contract/test_local_agents.py`, `tests/unit/test_review.py`; browser walkthrough | Shape validation cannot prove correctness; no file execution. |
 | Monitoring | `security/http.py`, `a2a/client.py`: generated correlation and safe actor/operation/decision traces | `tests/security/test_private_credentials.py`, `tests/integration/test_secure_delegation.py` | No tamper-evident log, SIEM integration, alert SLA, or operator attribution beyond teaching identities. |
 | Peer delegation | `a2a/limits.py`, `a2a/client.py`: exact URL policy, no redirects/proxies/send retries, explicit service authority | `tests/contract/test_limits.py`; `test_delegation_uses_service_authority_instead_of_forwarding_user_token` | Literal loopback only; registry federation, DNS rebinding and remote authentication need a new design. |
 | Privacy | `security/identity.py`, `container_credentials.py`: private files, recipient separation, redacted values | `tests/security/test_private_credentials.py`, `tests/security/test_container_credentials.py` | Local operator/Docker administrator can obtain credentials; no confidential-computing claim. |
 | Adversarial verification | Contract, security, and live HTTP tests exercise denial and race behavior | `tests/security`, `tests/contract`, `tests/integration` | Deterministic fixtures and automated approver requests, not a penetration test or real human review. |
+| Directory poisoning/disclosure | `a2a/directory.py`, `security/policy.py`: bounded topic-only queries, independent exact candidate policy, owner-filtered results and peer-enforced ACL | `tests/security/test_directory.py`, `tests/integration/test_discovery.py` | General cards are public; approved loopback identities only, no publication/cache/federation service. |
+| Browser/session boundary | `web/server.py`: exact Host/Origin, JSON/CSRF, private cookies, bounded synthetic sessions, session-owned task APIs; `a2a/traces.py` checks SDK owner scope | `tests/security/test_web_boundary.py`, `tests/integration/test_web.py`, `scripts/browser-smoke.py` | Operator identity simulation, no production login; HTTP only on host loopback, ephemeral sessions/history. |
+| Review amplification/incomplete results | `a2a/directory.py`: at most three distinct parallel sends, shared deadline, per-peer budget, attributed outcomes, rejected oversized findings, no recursive expansion or retries | `tests/integration/test_web.py`, `tests/unit/test_review.py` | Lost replies can leave unknown outcomes; no fairness or durable recovery. |
 
 ## Availability, lifecycle, and approval details
 
@@ -82,10 +87,19 @@ retention and deny new work to other callers. These are deployment gaps.
 
 Docker uses non-root containers, read-only roots, dropped capabilities, finite
 CPU/memory/PID limits, separate credential mounts, an internal network, and no
-host-published ports. Agents share the network namespace; this is not network
+host-published agent ports. The opt-in browser publishes only its gateway on host
+loopback. Agents share the network namespace; this is not network
 isolation between them. Native processes share the operator's OS account. Neither
 path provides TLS, signed peer identity, a protected approval UI, durable state,
 central identity/revocation, dependency vulnerability assurance, or incident response.
+
+Browser ingress is a separate credential-free relay on the browser bridge and
+internal lab network. It publishes `127.0.0.1:8080` and forwards only the fixed
+gateway's browser routes, preserving Host/Origin/CSRF/cookies and rejecting
+redirects and excess bytes. It mounts no credentials. Only ingress has an external
+bridge; agents/gateway retain the internal network. Application destination policy
+is not OS containment of a compromised relay. Tests in `test_browser_relay.py`
+cover fixed destinations, duplicate-header preservation, routes, bytes and redirects.
 
 Before remote deployment, review issuer/audience and delegation, TLS and server
 verification, card publication/cache expiry/revocation, every exposed operation,

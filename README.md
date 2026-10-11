@@ -2,13 +2,29 @@
 
 An engineering lab for the Agent2Agent (A2A) protocol, reusable Python agent boilerplate, and secure delegation.
 
-M1 through M6 are complete for the local teaching lab. Run two independent local agents that discover each other through Agent Cards and delegate over real A2A HTTP. The knowledge role serves engineering notes or the worked release-readiness fixture; the coordinator performs one approved lookup and composes the result. The authenticated profile adds owner-scoped tasks, cancellation, and a separate human approval exercise. No model account or paid API key is required.
+Run independent local agents that discover capabilities through Agent Cards and delegate over real A2A HTTP. The default two-agent lab teaches one approved lookup, owner-scoped tasks, cancellation and separate human approval. The opt-in engineering desk adds an authenticated directory, three specialists, browser interaction and bounded reviews with visible partial outcomes. No model account or paid API key is required.
 
 The [project constitution](docs/constitution.md) governs contributors and coding agents. The M1 SDK probe and original unauthenticated loopback demo remain available. The [reuse guide](docs/guides/boilerplate.md), repository coding skills, [workflow extension](labs/04-boilerplate-extension/README.md), and [Agent Card exercise](labs/05-agent-cards/README.md) provide the M4 extension path.
 
 The [security evidence](docs/security.md), [90-minute workshop](docs/guides/workshop.md), and [local model integration guide](docs/guides/local-model-integration.md) complete the M5 teaching path. The workshop includes a separate timing override for manual cancellation; remote deployment and inference remain later integrations. The [handoff guide](docs/guides/handoff.md) covers team adoption and the [CI workflow](.github/workflows/lab-ci.yaml); its first hosted run requires a pushed commit.
 
 ## Run with Docker
+
+For the interactive engineering desk:
+
+```sh
+docker compose -p a2a-desk -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml up --build -d --wait
+```
+
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). Ask `runbook security release`
+to consult three specialists and follow their decisions in the panel. The identity
+selector simulates Alice/Bob; it is not production login. Only the gateway is
+published on host loopback; browser scripts receive no bearer credentials.
+[Lab 7](labs/07-interactive-review/README.md) covers partial results, cancellation,
+limits and teardown. [Lab 6](labs/06-agent-discovery/README.md) teaches single-peer
+selection through the CLI. Use a separate project for these discovery credentials.
+
+For the baseline two-agent exercise:
 
 Use Docker Desktop and Compose to run the lab without a host Python environment:
 
@@ -127,10 +143,16 @@ Defaults work without a configuration file. To use a local file, copy `.env.exam
 | Setting | Behavior |
 | --- | --- |
 | `A2A_LAB_PROFILE` | `local-demo` is the unauthenticated default; `local-secure` uses generated recipient-bound credentials. |
-| `A2A_LAB_HOST` | Only `127.0.0.1` or `::1`; both profiles are restricted to loopback. |
+| `A2A_LAB_TOPOLOGY` | `baseline` (default) or authenticated `discovery`; the latter adds directory and three specialists. |
+| `A2A_LAB_DISCOVERY_MODE` | `single` (default) selects one peer or reports ties; `review` consults up to three matching permitted peers. Set consistently in coordinator/clients. |
+| `A2A_LAB_HOST` | Only `127.0.0.1` or `::1`; A2A/directory bind to loopback. |
 | `A2A_LAB_PORT` | Probe port from 1 through 65535; default 8100. |
 | `A2A_LAB_COORDINATOR_PORT` | Coordinator port; default 8101. Must differ from the knowledge port. |
 | `A2A_LAB_KNOWLEDGE_PORT` | Approved knowledge-agent port; default 8102. |
+| `A2A_LAB_RUNBOOK_PORT`, `A2A_LAB_SECURITY_PORT`, `A2A_LAB_RELEASE_PORT` | Fixed specialist ports, defaults 8103/8104/8105. Selected topology service ports must be distinct. |
+| `A2A_LAB_DIRECTORY_PORT` | Approved catalog port; default 8110. |
+| `A2A_LAB_DISCOVERY_PEERS` | JSON list of approved fixed roles, default `["runbook","security","release"]`; at most three unique roles. Cannot add arbitrary URLs. |
+| `A2A_LAB_WEB_BIND`, `A2A_LAB_WEB_PORT`, `A2A_LAB_WEB_ORIGIN` | Gateway defaults: `loopback`, 8080, `http://127.0.0.1:8080`. Change port/origin together. `container` binds the gateway inside Compose's private namespace; host publication remains loopback only. |
 | `A2A_LAB_KNOWLEDGE_WORKFLOW` | `notes` is the default; `release-readiness` selects the worked extension. Use the same choice in servers and clients. |
 | `A2A_LAB_REQUEST_TIMEOUT_SECONDS` | Finite timeout from greater than 0 through 300 seconds; default 5. Bounds each body read and workflow. A client exchange has a total deadline of twice this value. |
 | `A2A_LAB_MAX_INPUT_CHARACTERS` | Maximum input length from 1 through 16000 characters; default 1000. |
@@ -146,7 +168,7 @@ Defaults work without a configuration file. To use a local file, copy `.env.exam
 
 The required demo uses synthetic loopback HTTP. Both profiles validate cards and structured peer output, permit only exact configured outbound URLs, reject redirects and compressed peer responses, and bound bodies, concurrency, time, and retained records. The authenticated profile enforces identity, role, and resource ownership on each request. A credential or card cannot widen the configured peer destinations. Best-effort cancellation cleanup has an additional one-second maximum client budget.
 
-Each process has its own bounded in-memory SDK task store; restart loses it. Tasks are scoped by acting identity and represented user in `local-secure`; `local-demo` has a shared anonymous scope. Task retrieval, listing, and cancellation use the SDK. Completed tasks cannot be continued through the lab API. Proposal, approval, and receipt state is also bounded and ephemeral; record caps reject new work without discarding replay evidence. Streaming, push notifications, extended cards, registries, and model integrations remain outside the implemented lab.
+Each process has its own bounded in-memory SDK task store; restart loses it. Tasks are scoped by acting identity and represented user in `local-secure`; `local-demo` has a shared anonymous scope. Task retrieval, listing, and cancellation use the SDK. Completed tasks cannot be continued through the lab API. Proposal, approval, and receipt state is also bounded and ephemeral; record caps reject new work without discarding replay evidence. Streaming, push notifications, extended cards, open registration, and model integrations remain outside the implemented lab.
 
 ## Repository responsibilities
 
@@ -160,6 +182,7 @@ Each process has its own bounded in-memory SDK task store; restart loses it. Tas
 | `src/a2a_lab/domain` | Validated application results and the narrow knowledge-provider port. |
 | `src/a2a_lab/a2a` | Typed cards, SDK lifecycle, boundary limits, discovery, and delegation. |
 | `src/a2a_lab/security` | Recipient-bound identity, explicit HTTP permissions, and atomic synthetic approval/release state. |
+| `src/a2a_lab/web` | Synthetic browser sessions, private credential gateway, text rendering and task/trace UI. |
 | `docs/constitution.md` | Project rules, Python style, contributor workflow, and OWASP agent security. |
 | `docs/decisions` | Tested compatibility choices and limitations. |
 | `labs/01-local-delegation` | First runnable teaching exercise. |

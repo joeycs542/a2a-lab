@@ -1,0 +1,64 @@
+# A credential-free relay publishes the browser; agents/gateway stay internal.
+services:
+  coordinator:
+    environment:
+      A2A_LAB_DISCOVERY_MODE: review
+  client:
+    environment:
+      A2A_LAB_DISCOVERY_MODE: review
+  web:
+    image: a2a-lab:local
+    pull_policy: never
+    command: [serve-web]
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 1
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,uid=10001,gid=10001,mode=0700
+    network_mode: service:knowledge
+    environment:
+      A2A_LAB_PROFILE: local-secure
+      A2A_LAB_TOPOLOGY: discovery
+      A2A_LAB_DISCOVERY_MODE: review
+      A2A_LAB_CREDENTIALS_DIRECTORY: /credentials/operator
+      A2A_LAB_WEB_BIND: container
+    volumes:
+      - operator-credentials:/credentials/operator:ro
+    depends_on:
+      coordinator: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/style.css', timeout=2).close()"]
+      interval: 3s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+  ingress:
+    image: a2a-lab:local
+    pull_policy: never
+    entrypoint: [python, -m, a2a_lab.web.relay]
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 128m
+    cpus: 1
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,uid=10001,gid=10001,mode=0700
+    networks: [browser, lab]
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      web: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/style.css', timeout=2).close()"]
+      interval: 3s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
+networks:
+  browser: {}

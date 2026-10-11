@@ -1,6 +1,6 @@
 # A2A lab project constitution
 
-Version: 0.4
+Version: 0.5
 
 Updated: 11 October 2026  
 Purpose: Project, design, and coding rules for contributors and future coding agents
@@ -85,6 +85,26 @@ Validate the card's protocol, binding, content modes, and required capability be
 A registry entry, skill description, or successful discovery does not establish identity or permission. If directories or caches are added, define who may publish and query entries, how identity is verified, and how freshness and revocation are enforced. Keep searchable registries and dynamic registration optional until an authorized lab objective requires them.
 
 Review evidence: discovery traces, incompatible/malformed card cases, capability mismatch, unavailable peers, and endpoint-change denial before delegation.
+
+The opt-in engineering desk uses an authenticated, read-only curated directory.
+Validate returned identities, capabilities and URLs against independent trusted
+configuration before fetching cards. Filter queries by represented user, and
+enforce invocation policy again at the peer. Public metadata is not private
+authority. Adding a role requires endpoint, card, audience, permission, process
+and credential wiring together; dynamic publication remains separate work.
+
+Choose single-peer or bounded review behavior at startup and advertise that
+choice accurately. Review at most three distinct approved specialists, preserve
+each accepted finding and citation, reject oversized findings, and label missing,
+failed or unknown outcomes explicitly. Never recursively discover or retry a
+send because peer text asks for it. Own every child and suppress late artifacts
+after root cancellation; a lost reply can still leave an unknown remote outcome.
+
+Browser gateways keep bearer credentials server-side. Verify Host, exact origin,
+CSRF and session ownership before operations; render peer text as text. Bound
+sessions, turns, traces and polling. A synthetic identity selector must say it is
+an operator simulation. Discovery and trace APIs are application APIs, not added
+A2A protocol methods. Browser updates do not imply A2A streaming support.
 
 ## Identity and least privilege
 

@@ -14,6 +14,7 @@ from a2a_lab.security.identity import (
     current_correlation,
     current_principal,
 )
+from a2a_lab.security.policy import permitted_peer
 
 
 class LocalAuthentication:
@@ -29,7 +30,11 @@ class LocalAuthentication:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or (
-            scope["method"] == "GET" and scope["path"] == "/.well-known/agent-card.json"
+            scope["method"] == "GET"
+            and (
+                scope["path"] == "/.well-known/agent-card.json"
+                or (self._audience == "directory" and scope["path"] == "/health")
+            )
         ):
             await self._app(scope, receive, send)
             return
@@ -51,14 +56,23 @@ class LocalAuthentication:
             return
         permitted = False
         if scope["method"] == "POST":
-            if scope["path"] == RPC_PATH:
+            if self._audience == "directory" and scope["path"] == "/search":
+                permitted = principal.role in {"user", "service"}
+            elif scope["path"] == RPC_PATH and self._audience != "directory":
                 permitted = principal.role == "user" or (
-                    self._audience == "knowledge" and principal.role == "service"
+                    self._audience in {"knowledge", "runbook", "security", "release"}
+                    and principal.role == "service"
                 )
+                if self._audience == "security" and not permitted_peer("security", principal.owner):
+                    permitted = False
             elif self._audience == "coordinator":
                 if scope["path"] == "/control/approve":
                     permitted = principal.role == "approver"
-                elif scope["path"] in {"/actions/proposals", "/actions/execute"}:
+                elif scope["path"] in {
+                    "/actions/proposals",
+                    "/actions/execute",
+                    "/discovery/trace",
+                }:
                     permitted = principal.role == "user"
         if not permitted:
             self._trace(

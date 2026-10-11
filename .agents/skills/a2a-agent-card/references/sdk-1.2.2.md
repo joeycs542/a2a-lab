@@ -15,7 +15,10 @@ Application `version` comes from installed package metadata. The interface is
 one approved JSON-RPC `1.0` URL, with text input and structured JSON output.
 For knowledge, `knowledge_workflow=notes` expects `engineering-knowledge`;
 `release-readiness` expects `release-readiness`. Coordinator retains
-`engineering-coordination`. `required_skill_id` is trusted client configuration.
+`engineering-coordination` in baseline mode; discovery selects
+`engineering-discovery` or `engineering-review` from startup settings. Fixed
+specialists advertise `operations-runbook`, `secure-agent-design` and
+`release-readiness`. `required_skill_id` is trusted client configuration.
 
 For secure cards, the `localBearer` map entry contains an
 `HTTPAuthSecurityScheme` with `scheme="bearer"` and `bearer_format="opaque"`.
@@ -25,7 +28,9 @@ Middleware independently enforces audience, expiry, role, and resource access.
 
 Streaming, push, extended cards, and signing are absent or false. Synthetic
 approval routes are operator controls outside advertised skills. Models, MCP,
-procurement, payments, and registries remain unimplemented. Task reads/list/cancel
+procurement, payments and open registration remain unimplemented. Curated search
+and protected traces are application APIs outside advertised A2A operations.
+Task reads/list/cancel
 are protocol operations, not extra business skills.
 
 Consult `tests/contract`, `tests/security`, `a2a/cards.py`, `a2a/client.py`,

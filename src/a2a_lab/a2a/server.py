@@ -21,8 +21,10 @@ from a2a_lab.a2a.identity import AuthenticatedContextBuilder
 from a2a_lab.a2a.limits import RequestLimits
 from a2a_lab.a2a.protocol import PinnedVersionContextBuilder
 from a2a_lab.a2a.store import BoundedTaskStore
+from a2a_lab.a2a.traces import TraceStore, captured_trace
 from a2a_lab.config import RPC_PATH, Settings
 from a2a_lab.domain.ports import KnowledgeLookup
+from a2a_lab.domain.roles import ServiceName
 from a2a_lab.security.approval import ApprovalStore
 from a2a_lab.security.http import LocalAuthentication
 from a2a_lab.security.identity import ServerKeys, current_correlation, load_server_keys
@@ -42,10 +44,13 @@ class LabRequestHandler(DefaultRequestHandler):
         return result
 
 
-def console_trace(agent: AgentName) -> TraceSink:
+def console_trace(agent: ServiceName) -> TraceSink:
     """Emit fixed event fields without user text, cards, or credentials."""
 
     def emit(event: str) -> None:
+        events = captured_trace.get()
+        if events is not None and len(events) < 64 and event[:300] not in events:
+            events.append(event[:300])
         suffix = (
             ""
             if event.startswith(("policy.", "action.", "workflow.started"))
@@ -67,8 +72,11 @@ def create_agent_app(
     """Give each process an independent SDK task store and lifespan owner."""
     card = build_agent_card(agent, settings)
     tasks = BoundedTaskStore(settings.max_retained_tasks)
+    traces = (
+        TraceStore(tasks, settings.max_retained_tasks) if settings.topology == "discovery" else None
+    )
     handler = LabRequestHandler(
-        agent_executor=WorkflowExecutor(workflow, settings, trace),
+        agent_executor=WorkflowExecutor(workflow, settings, trace, traces),
         task_store=tasks,
         agent_card=card,
         validate_input_modes=True,
@@ -106,6 +114,7 @@ def create_agent_app(
                 enable_v0_3_compat=False,
             ),
             *controls,
+            *(traces.routes() if traces and agent == "coordinator" else []),
         ],
         middleware=middleware,
         lifespan=lifespan,

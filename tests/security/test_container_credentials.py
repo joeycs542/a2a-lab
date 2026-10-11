@@ -44,3 +44,31 @@ def test_expired_container_credentials_require_explicit_reset(tmp_path: Path) ->
     with pytest.raises(SecurityError, match="expired"):
         prepare_credentials(tmp_path)
     assert path.read_bytes() == original
+
+
+def test_discovery_issuer_separates_every_recipient_and_reuses_keys(tmp_path: Path) -> None:
+    prepare_credentials(tmp_path, "discovery")
+    original = {path: path.read_bytes() for path in tmp_path.glob("*/*.json")}
+    assert len(original) == 7
+    for audience in ("runbook", "security", "release", "directory"):
+        assert not load_server_keys(tmp_path / audience, audience).outbound
+    coordinator = load_server_keys(tmp_path / "coordinator", "coordinator")
+    for owner in ("alice", "bob"):
+        for audience in ("runbook", "security", "release", "directory"):
+            credential = coordinator.delegated(owner, audience)
+            recipient = load_server_keys(tmp_path / audience, audience)
+            assert recipient.authenticate(credential.bearer(), audience).owner == owner
+            with pytest.raises(SecurityError):
+                load_server_keys(tmp_path / "knowledge", "knowledge").authenticate(
+                    credential.bearer(), "knowledge"
+                )
+    prepare_credentials(tmp_path, "discovery")
+    assert {path: path.read_bytes() for path in original} == original
+
+
+def test_baseline_credentials_cannot_be_silently_upgraded(tmp_path: Path) -> None:
+    prepare_credentials(tmp_path)
+    original = {path: path.read_bytes() for path in tmp_path.glob("*/*.json")}
+    with pytest.raises(SecurityError):
+        prepare_credentials(tmp_path, "discovery")
+    assert {path: path.read_bytes() for path in tmp_path.glob("*/*.json")} == original
