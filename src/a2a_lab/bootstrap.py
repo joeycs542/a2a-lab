@@ -9,14 +9,20 @@ from a2a_lab.agents.coordinator import CoordinatorAgent
 from a2a_lab.agents.knowledge import KnowledgeAgent
 from a2a_lab.config import Settings
 from a2a_lab.domain.ports import KnowledgeLookup
+from a2a_lab.security.identity import load_server_keys
 
 
 def build_app(agent: AgentName, settings: Settings) -> Starlette:
     """Build either an offline knowledge workflow or one-hop coordinator."""
     trace = console_trace(agent)
-    workflow: KnowledgeLookup = (
-        KnowledgeAgent()
-        if agent == "knowledge"
-        else CoordinatorAgent(PeerClient(settings, "knowledge", trace))
+    keys = (
+        load_server_keys(settings.credentials_directory, agent)
+        if settings.profile == "local-secure"
+        else None
     )
-    return create_agent_app(agent, settings, workflow, trace)
+    workflow: KnowledgeLookup = (
+        KnowledgeAgent(settings.fixture_delay_seconds)
+        if agent == "knowledge"
+        else CoordinatorAgent(PeerClient(settings, "knowledge", trace, server_keys=keys))
+    )
+    return create_agent_app(agent, settings, workflow, trace, keys=keys)

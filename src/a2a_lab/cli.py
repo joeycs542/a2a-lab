@@ -8,15 +8,27 @@ import socket
 import sys
 from collections.abc import Sequence
 from importlib.metadata import version
+from pathlib import Path
 
+import httpx
 import uvicorn
+from google.protobuf.json_format import MessageToDict
 from pydantic import ValidationError
 
 from a2a_lab.a2a.client import LookupFailure, PeerClient
+from a2a_lab.a2a.control_client import control_request
 from a2a_lab.a2a.probe import create_probe_app, verify_in_process, verify_sdk
 from a2a_lab.bootstrap import build_app
 from a2a_lab.config import Settings
 from a2a_lab.demo import DEFAULT_QUESTION, DemoFailure, run_demo
+from a2a_lab.security.approval import (
+    ApprovalRequest,
+    ExecutionRequest,
+    Grant,
+    Proposal,
+    ReleaseTerms,
+)
+from a2a_lab.security.identity import SecurityError, initialize_security
 
 
 def _validate_listener(fd: int, settings: Settings, port: int) -> bool:
@@ -49,8 +61,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     call = commands.add_parser("call", help="Discover and call a running approved agent")
     call.add_argument("--agent", choices=["coordinator", "knowledge"], default="coordinator")
     call.add_argument("--text", default=DEFAULT_QUESTION)
+    call.add_argument("--as", choices=["alice", "bob"], dest="owner", default="alice")
+    call.add_argument(
+        "--async", action="store_true", dest="background", help="Start a task and return its ID"
+    )
     demo = commands.add_parser("demo", help="Start both agents, delegate over HTTP, and stop them")
     demo.add_argument("--text", default=DEFAULT_QUESTION)
+    demo.add_argument("--secure", action="store_true", help="Use generated local credentials")
+    initialize = commands.add_parser(
+        "init-security", help="Create private local teaching credentials"
+    )
+    initialize.add_argument("--directory", type=Path)
+    initialize.add_argument("--ttl-seconds", type=int, default=3600)
+    tasks = commands.add_parser("task", help="Retrieve, list, or cancel agent tasks")
+    tasks.add_argument("operation", choices=["get", "list", "cancel"])
+    tasks.add_argument("task_id", nargs="?")
+    tasks.add_argument("--agent", choices=["coordinator", "knowledge"], default="coordinator")
+    tasks.add_argument("--as", choices=["alice", "bob"], dest="owner", default="alice")
+    action = commands.add_parser(
+        "action", help="Propose, explicitly approve, or execute a synthetic fixture release"
+    )
+    action.add_argument("operation", choices=["propose", "approve", "execute"])
+    action.add_argument("--as", choices=["alice", "bob"], dest="owner", default="alice")
+    action.add_argument("--task-id")
+    action.add_argument("--artifact-id")
+    action.add_argument("--label", default="Teaching fixture")
+    action.add_argument("--proposal-file", type=Path)
+    action.add_argument("--approval-file", type=Path)
+    action.add_argument("--idempotency-key")
+    action.add_argument(
+        "--confirm", action="store_true", help="Explicitly approve the reviewed proposal"
+    )
+    action.add_argument("--ttl-seconds", type=int, default=60)
     args = parser.parse_args(argv)
 
     try:
@@ -59,6 +101,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.command == "serve" and args.port is not None
             else {}
         )
+        if args.command == "demo" and args.secure:
+            overrides["profile"] = "local-secure"
         settings = Settings(**overrides)
     except ValidationError as error:
         print("Invalid lab configuration:", file=sys.stderr)
@@ -67,20 +111,34 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"  {field}: {issue['msg']}", file=sys.stderr)
         return 2
 
-    if args.command == "doctor":
+    if args.command == "init-security":
+        try:
+            initialize_security(args.directory or settings.credentials_directory, args.ttl_seconds)
+        except (SecurityError, OSError) as error:
+            print(
+                f"Could not create new credentials ({type(error).__name__}). "
+                "Existing files are preserved.",
+                file=sys.stderr,
+            )
+            return 1
+        print("Private local credentials created; their values are not displayed.")
+    elif args.command == "doctor":
         print(
             json.dumps(
                 {
                     "python": platform.python_version(),
                     "sdk_version": version("a2a-sdk"),
-                    "settings": settings.model_dump(),
+                    "settings": settings.model_dump(mode="json"),
                     "endpoint": settings.rpc_url,
-                    "scope": "Synthetic loopback use; no authentication or network deployment.",
+                    "scope": "Synthetic loopback profile; not a network deployment.",
                 },
                 indent=2,
             )
         )
     elif args.command == "serve-probe":
+        if settings.profile != "local-demo":
+            print("The M1 compatibility probe requires local-demo.", file=sys.stderr)
+            return 2
         uvicorn.run(
             create_probe_app(settings), host=settings.host, port=settings.port, log_level="warning"
         )
@@ -92,8 +150,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
+        try:
+            app = build_app(args.agent, settings)
+        except (SecurityError, ValidationError, OSError):
+            print(
+                "Secure configuration unavailable; generate valid private credentials first.",
+                file=sys.stderr,
+            )
+            return 2
         uvicorn.run(
-            build_app(args.agent, settings),
+            app,
             host=settings.host,
             port=port,
             fd=args.socket_fd,
@@ -108,9 +174,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             if args.command == "demo":
                 result = asyncio.run(run_demo(settings, args.text, trace))
+            elif args.background:
+                task = asyncio.run(
+                    PeerClient(settings, args.agent, trace, owner=args.owner).start(args.text)
+                )
+                print(json.dumps(MessageToDict(task), indent=2))
+                return 0
             else:
-                result = asyncio.run(PeerClient(settings, args.agent, trace).call(args.text))
-        except (LookupFailure, DemoFailure) as error:
+                result = asyncio.run(
+                    PeerClient(settings, args.agent, trace, owner=args.owner).call(args.text)
+                )
+        except (LookupFailure, DemoFailure, SecurityError) as error:
             print(str(error), file=sys.stderr)
             return 1
         except KeyboardInterrupt:
@@ -121,7 +195,68 @@ def main(argv: Sequence[str] | None = None) -> int:
                 {"task_id": result.task_id, **result.answer.model_dump(mode="json")}, indent=2
             )
         )
+    elif args.command == "task":
+        if args.operation != "list" and not args.task_id:
+            parser.error("task get/cancel requires a task ID")
+        client = PeerClient(settings, args.agent, lambda event: None, owner=args.owner)
+        try:
+            if args.operation == "list":
+                listing = asyncio.run(client.list_tasks())
+                payload = MessageToDict(listing)
+            elif args.operation == "get":
+                payload = MessageToDict(asyncio.run(client.get_task(args.task_id)))
+            else:
+                payload = MessageToDict(asyncio.run(client.cancel_task(args.task_id)))
+        except (LookupFailure, SecurityError):
+            print("Task operation denied or unavailable.", file=sys.stderr)
+            return 1
+        print(json.dumps(payload, indent=2))
+    elif args.command == "action":
+        try:
+            if args.operation == "propose":
+                if not args.task_id or not args.artifact_id:
+                    parser.error("action propose requires task and artifact IDs")
+                data = ReleaseTerms(
+                    task_id=args.task_id, artifact_id=args.artifact_id, label=args.label
+                ).model_dump(mode="json")
+            else:
+                if args.proposal_file is None:
+                    parser.error("action approve/execute requires --proposal-file")
+                proposal = Proposal.model_validate_json(
+                    args.proposal_file.read_text(encoding="utf-8")
+                )
+                if args.operation == "approve":
+                    if not args.confirm:
+                        parser.error("Review the exact proposal before approving with --confirm")
+                    data = ApprovalRequest(
+                        proposal_id=proposal.proposal_id,
+                        expected_digest=proposal.digest,
+                        terms=proposal.terms,
+                        ttl_seconds=args.ttl_seconds,
+                    ).model_dump(mode="json")
+                else:
+                    if args.approval_file is None or not args.idempotency_key:
+                        parser.error(
+                            "action execute requires --approval-file and --idempotency-key"
+                        )
+                    grant = Grant.model_validate_json(
+                        args.approval_file.read_text(encoding="utf-8")
+                    )
+                    data = ExecutionRequest(
+                        proposal_id=proposal.proposal_id,
+                        approval_id=grant.approval_id,
+                        terms=proposal.terms,
+                        idempotency_key=args.idempotency_key,
+                    ).model_dump(mode="json")
+            payload = asyncio.run(control_request(settings, args.owner, args.operation, data))
+        except (SecurityError, ValidationError, OSError, httpx.HTTPError):
+            print("Action denied, unavailable, or invalid for these exact terms.", file=sys.stderr)
+            return 1
+        print(json.dumps(payload, indent=2))
     elif args.command == "check-sdk":
+        if settings.profile != "local-demo":
+            print("The M1 compatibility probe requires local-demo.", file=sys.stderr)
+            return 2
         try:
             if args.live:
                 report = asyncio.run(verify_sdk(settings))
