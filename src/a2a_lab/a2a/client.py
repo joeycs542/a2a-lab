@@ -53,6 +53,10 @@ TERMINAL = frozenset(
 class LookupFailure(RuntimeError):
     """Discovery or delegation failed without exposing private peer details."""
 
+    def __init__(self, message: str, outcome: str = "unknown") -> None:
+        super().__init__(message)
+        self.outcome = outcome
+
 
 @dataclass(frozen=True)
 class CallResult:
@@ -128,6 +132,8 @@ class PeerClient:
         server_keys: ServerKeys | None = None,
         credential: Credential | None = None,
     ) -> None:
+        if agent in {"runbook", "security", "release"} and settings.topology != "discovery":
+            raise SecurityError("Specialist calls require the discovery topology.")
         self._settings = settings
         self._agent = agent
         self._trace = trace
@@ -145,7 +151,7 @@ class PeerClient:
             principal = current_principal.get()
             if principal is None or principal.role != "user":
                 raise SecurityError("Delegation requires a verified user.")
-            credential = self._server_keys.delegated(principal.owner)
+            credential = self._server_keys.delegated(principal.owner, self._agent)
         else:
             credential = load_client_keys(self._settings.credentials_directory).select(
                 self._owner, self._agent
@@ -234,6 +240,11 @@ class PeerClient:
                 raise BoundaryError("Peer returned no task.")
             return task
 
+    async def discover(self) -> None:
+        """Validate a live card without sending a task."""
+        async with self._connected(self._credential()):
+            pass
+
     async def answer(self, question: str) -> Answer:
         """Implement the coordinator's knowledge-provider port."""
         return (await self.call(question)).answer
@@ -277,6 +288,7 @@ class PeerClient:
                 task = await self._send(
                     question, credential, self._settings.profile == "local-secure"
                 )
+                self._trace(f"delegation.started agent={self._agent} task={task.id!r}")
                 if self._settings.profile == "local-secure":
                     for _ in range(self._settings.max_task_polls):
                         if task.status.state in TERMINAL:
@@ -291,8 +303,21 @@ class PeerClient:
                 result = read_answer(task)
                 self._trace(f"rpc.completed agent={self._agent} task={result.task_id!r}")
                 return result
-        except (ValueError, TimeoutError) as error:
-            raise LookupFailure("Peer task failed or exceeded its deadline.") from error
+        except (LookupFailure, ValueError, TimeoutError) as error:
+            outcome = "unknown"
+            if task is not None:
+                outcome = {
+                    TaskState.TASK_STATE_FAILED: "failed",
+                    TaskState.TASK_STATE_CANCELED: "canceled",
+                    TaskState.TASK_STATE_REJECTED: "rejected",
+                    TaskState.TASK_STATE_COMPLETED: "invalid",
+                }.get(task.status.state, "unknown")
+            message = (
+                str(error)
+                if isinstance(error, LookupFailure)
+                else "Peer task failed or exceeded its deadline."
+            )
+            raise LookupFailure(message, outcome) from error
         finally:
             if task is not None and task.status.state not in TERMINAL:
                 cleanup = asyncio.create_task(self._cleanup(task.id, credential))

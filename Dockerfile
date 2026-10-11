@@ -17,6 +17,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM build AS verify
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-editable
 COPY tests ./tests
+COPY scripts ./scripts
 RUN --network=none uv run --no-sync ruff check . \
     && uv run --no-sync ruff format --check . \
     && uv run --no-sync mypy src \
@@ -25,9 +26,9 @@ RUN --network=none uv run --no-sync ruff check . \
 FROM python:3.12.13-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36 AS runtime
 RUN groupadd --gid 10001 lab \
     && useradd --uid 10001 --gid lab --create-home lab \
-    && mkdir -p /credentials/operator /credentials/coordinator /credentials/knowledge /work \
+    && mkdir -p /credentials/operator /credentials/coordinator /credentials/knowledge /credentials/runbook /credentials/security /credentials/release /credentials/directory /work \
     && chown -R lab:lab /credentials /work \
-    && chmod 0700 /credentials/operator /credentials/coordinator /credentials/knowledge /work
+    && chmod 0700 /credentials/* /work
 COPY --from=build /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \

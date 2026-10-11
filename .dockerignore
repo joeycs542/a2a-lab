@@ -8,6 +8,9 @@
 !src/**
 !tests/
 !tests/**
+!scripts/
+!scripts/**
 src/**/__pycache__/
 tests/**/__pycache__/
+scripts/**/__pycache__/
 **/*.pyc

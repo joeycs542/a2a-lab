@@ -49,6 +49,9 @@ jobs:
           docker compose -p a2a-ci -f compose.yaml -f compose.workshop.yaml config --quiet
           docker compose -p a2a-ci -f compose.yaml -f compose.readiness.yaml config --quiet
           docker compose -p a2a-ci -f compose.yaml -f compose.demo.yaml config --quiet
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml config --quiet
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.review.yaml config --quiet
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml config --quiet
 
       - name: Exercise independent Compose agents
         run: |
@@ -57,6 +60,18 @@ jobs:
           docker compose -p a2a-ci -f compose.yaml -f compose.readiness.yaml up -d --wait --wait-timeout 60
           docker compose -p a2a-ci -f compose.yaml -f compose.readiness.yaml run --rm client call --text "release readiness"
 
+      - name: Exercise authenticated directory and specialist routing
+        run: |
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml up -d --wait --wait-timeout 60
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml run --rm client discover --text "runbook security release"
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml run --rm client call --text "secure delegation"
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml run --rm client call --text "release readiness"
+
+      - name: Exercise browser gateway and bounded specialist review
+        run: |
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml up -d --wait --wait-timeout 60
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml run -T --rm --entrypoint python client - < scripts/browser-smoke.py
+
       - name: Show safe service traces
         if: always()
         run: docker compose -p a2a-ci logs --no-color coordinator knowledge
@@ -64,3 +79,7 @@ jobs:
       - name: Remove CI teaching state
         if: always()
         run: docker compose -p a2a-ci --profile tools down --volumes --remove-orphans
+
+      - name: Remove discovery CI teaching state
+        if: always()
+        run: docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml --profile tools down --volumes --remove-orphans

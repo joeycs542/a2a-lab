@@ -28,6 +28,11 @@ from a2a_lab.config import Settings
         {"max_concurrent_requests": 0},
         {"startup_timeout_seconds": 0},
         {"shutdown_timeout_seconds": float("nan")},
+        {"topology": "open-registry"},
+        {"topology": "discovery", "profile": "local-demo"},
+        {"discovery_peers": ["unapproved"]},
+        {"discovery_peers": ["runbook", "runbook"]},
+        {"topology": "discovery", "profile": "local-secure", "directory_port": 8103},
     ],
 )
 def test_unsafe_or_invalid_configuration_is_rejected(values: dict[str, object]) -> None:

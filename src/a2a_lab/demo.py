@@ -1,6 +1,7 @@
 """Own the local servers, their reserved sockets, and bounded startup."""
 
 import asyncio
+import json
 import os
 import socket
 import sys
@@ -12,10 +13,10 @@ import httpx
 from a2a.client import A2ACardResolver
 from a2a.client.errors import AgentCardResolutionError
 
-from a2a_lab.a2a.cards import AgentName
 from a2a_lab.a2a.client import CallResult, PeerClient, TraceSink, validate_card
 from a2a_lab.a2a.limits import BoundedTransport
 from a2a_lab.config import Settings
+from a2a_lab.domain.roles import ServiceName, services_for
 
 DEFAULT_QUESTION = "What information should our service runbook contain?"
 
@@ -29,7 +30,7 @@ async def _read_trace(process: asyncio.subprocess.Process, trace: TraceSink) -> 
         return
     async for line in process.stdout:
         text = line.decode("utf-8", errors="replace").rstrip()
-        if text.startswith(("[coordinator pid=", "[knowledge pid=")):
+        if text.startswith(tuple(f"[{service} pid=" for service in services_for("discovery"))):
             trace(text[:1024])
 
 
@@ -48,10 +49,12 @@ async def _stop(process: asyncio.subprocess.Process, timeout: float) -> None:
 
 
 async def _wait_ready(
-    processes: dict[AgentName, asyncio.subprocess.Process], settings: Settings, trace: TraceSink
+    processes: dict[ServiceName, asyncio.subprocess.Process], settings: Settings, trace: TraceSink
 ) -> None:
     urls = frozenset(
-        f"{settings.agent_base_url(agent)}/.well-known/agent-card.json" for agent in processes
+        f"{settings.agent_base_url(agent)}"
+        + ("/health" if agent == "directory" else "/.well-known/agent-card.json")
+        for agent in processes
     )
     async with (
         asyncio.timeout(settings.startup_timeout_seconds),
@@ -68,13 +71,19 @@ async def _wait_ready(
                 if process.returncode is not None:
                     raise DemoFailure(f"The {agent} server exited during startup.")
                 try:
-                    card = await A2ACardResolver(
-                        client, settings.agent_base_url(agent)
-                    ).get_agent_card()
-                    validate_card(card, agent, settings)
+                    if agent == "directory":
+                        response = await client.get(f"{settings.agent_base_url(agent)}/health")
+                        response.raise_for_status()
+                        if response.json() != {"status": "ok"}:
+                            raise DemoFailure("Directory health response is invalid.")
+                    else:
+                        card = await A2ACardResolver(
+                            client, settings.agent_base_url(agent)
+                        ).get_agent_card()
+                        validate_card(card, agent, settings)
                     trace(f"supervisor.ready agent={agent} pid={process.pid}")
                     break
-                except AgentCardResolutionError:
+                except (AgentCardResolutionError, httpx.HTTPError):
                     await asyncio.sleep(0.05)
 
 
@@ -88,19 +97,17 @@ async def running_agents(settings: Settings, trace: TraceSink) -> AsyncIterator[
     """
     if os.name != "posix":
         raise DemoFailure("The supervisor requires POSIX; use standalone serve and call commands.")
-    processes: dict[AgentName, asyncio.subprocess.Process] = {}
+    processes: dict[ServiceName, asyncio.subprocess.Process] = {}
     readers: list[asyncio.Task[None]] = []
     with ExitStack() as stack:
         temporary = stack.enter_context(TemporaryDirectory(prefix="a2a-lab-demo-"))
-        sockets: dict[AgentName, socket.socket] = {}
+        sockets: dict[ServiceName, socket.socket] = {}
         try:
-            for agent in ("knowledge", "coordinator"):
+            for agent in services_for(settings.topology):
                 family = socket.AF_INET6 if settings.host == "::1" else socket.AF_INET
                 listener = stack.enter_context(socket.socket(family, socket.SOCK_STREAM))
                 listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                port = (
-                    settings.knowledge_port if agent == "knowledge" else settings.coordinator_port
-                )
+                port = settings.service_port(agent)
                 listener.bind((settings.host, port))
                 listener.listen(128)
                 sockets[agent] = listener
@@ -109,8 +116,10 @@ async def running_agents(settings: Settings, trace: TraceSink) -> AsyncIterator[
             }
             environment.update(
                 {
-                    f"A2A_LAB_{key.upper()}": str(value)
-                    for key, value in settings.model_dump().items()
+                    f"A2A_LAB_{key.upper()}": (
+                        json.dumps(value) if isinstance(value, (list, dict)) else str(value)
+                    )
+                    for key, value in settings.model_dump(mode="json").items()
                 }
             )
             for agent, listener in sockets.items():
