@@ -1,15 +1,15 @@
-"""Validated settings for the explicit M1 loopback-only profile."""
+"""Validated settings for synthetic, loopback-only lab agents."""
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 RPC_PATH = "/a2a/jsonrpc"
 
 
 class Settings(BaseSettings):
-    """M1 has no authenticated or network deployment profile."""
+    """The local demo has no authenticated or network deployment profile."""
 
     model_config = SettingsConfigDict(
         env_prefix="A2A_LAB_",
@@ -25,11 +25,33 @@ class Settings(BaseSettings):
     port: int = Field(default=8100, ge=1, le=65535)
     request_timeout_seconds: float = Field(default=5, gt=0, le=300, allow_inf_nan=False)
     max_input_characters: int = Field(default=1000, ge=1, le=16000)
+    coordinator_port: int = Field(default=8101, ge=1, le=65535)
+    knowledge_port: int = Field(default=8102, ge=1, le=65535)
+    max_payload_bytes: int = Field(default=65536, ge=1024, le=1048576)
+    max_concurrent_requests: int = Field(default=4, ge=1, le=32)
+    startup_timeout_seconds: float = Field(default=15, gt=0, le=120, allow_inf_nan=False)
+    shutdown_timeout_seconds: float = Field(default=3, gt=0, le=30, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def distinct_agent_ports(self) -> "Settings":
+        """Prevent the coordinator from routing back to its own endpoint."""
+        if self.coordinator_port == self.knowledge_port:
+            raise ValueError("Coordinator and knowledge ports must be distinct.")
+        return self
 
     @property
     def base_url(self) -> str:
+        return self.url_for_port(self.port)
+
+    def url_for_port(self, port: int) -> str:
+        """Build a URL from the approved literal loopback host."""
         host = f"[{self.host}]" if self.host == "::1" else self.host
-        return f"http://{host}:{self.port}"
+        return f"http://{host}:{port}"
+
+    def agent_base_url(self, agent: Literal["coordinator", "knowledge"]) -> str:
+        """Return the deployment-configured destination for an agent."""
+        port = self.coordinator_port if agent == "coordinator" else self.knowledge_port
+        return self.url_for_port(port)
 
     @property
     def rpc_url(self) -> str:
