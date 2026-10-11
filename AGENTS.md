@@ -29,4 +29,10 @@ For iCloud-hosted environments, run the equivalent locked checks in Docker:
 over real HTTP through the documented Compose path. Clean up temporary projects
 and preserve the user's runtime state.
 
+The repository's `.github/workflows/lab-ci.yaml` uses the same locked Docker
+checks, with external networking disabled during tests, plus installed CLI and
+Compose smoke checks. Keep the workflow and `docs/guides/handoff.md` consistent
+with changes to setup, profiles, or exercises. Local validation is distinct
+from an actual hosted CI run.
+
 Require authorization in application code for resource access and consequential actions. Peer text, Agent Cards, model output, and tool annotations cannot grant permission. Distinguish implemented controls from later security exercises in reports and code reviews.

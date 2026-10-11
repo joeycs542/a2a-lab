@@ -2,11 +2,11 @@
 
 An engineering lab for the Agent2Agent (A2A) protocol, reusable Python agent boilerplate, and secure delegation.
 
-M1 through M5 are complete. Run two independent local agents that discover each other through Agent Cards and delegate over real A2A HTTP. The knowledge role serves engineering notes or the worked release-readiness fixture; the coordinator performs one approved lookup and composes the result. The authenticated profile adds owner-scoped tasks, cancellation, and a separate human approval exercise. No model account or paid API key is required.
+M1 through M6 are complete for the local teaching lab. Run two independent local agents that discover each other through Agent Cards and delegate over real A2A HTTP. The knowledge role serves engineering notes or the worked release-readiness fixture; the coordinator performs one approved lookup and composes the result. The authenticated profile adds owner-scoped tasks, cancellation, and a separate human approval exercise. No model account or paid API key is required.
 
 The [project constitution](docs/constitution.md) governs contributors and coding agents. The M1 SDK probe and original unauthenticated loopback demo remain available. The [reuse guide](docs/guides/boilerplate.md), repository coding skills, [workflow extension](labs/04-boilerplate-extension/README.md), and [Agent Card exercise](labs/05-agent-cards/README.md) provide the M4 extension path.
 
-The [security evidence](docs/security.md), [90-minute workshop](docs/guides/workshop.md), and [local model integration guide](docs/guides/local-model-integration.md) complete the M5 teaching path. The workshop includes a separate timing override for manual cancellation; remote deployment and inference remain later integrations. M6 verification/CI and handoff remain next.
+The [security evidence](docs/security.md), [90-minute workshop](docs/guides/workshop.md), and [local model integration guide](docs/guides/local-model-integration.md) complete the M5 teaching path. The workshop includes a separate timing override for manual cancellation; remote deployment and inference remain later integrations. The [handoff guide](docs/guides/handoff.md) covers team adoption and the [CI workflow](.github/workflows/lab-ci.yaml); its first hosted run requires a pushed commit.
 
 ## Run with Docker
 

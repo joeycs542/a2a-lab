@@ -121,6 +121,8 @@ docker build --target verify -t a2a-lab:verify .
 
 The verification stage installs locked development dependencies and runs Ruff
 lint/format, strict mypy, and the complete behavioral suite inside Linux. The
+check command runs without external networking; loopback remains available for
+integration tests. Image/package installation occurs before that command. The
 runtime image contains runtime dependencies only. The
 [container decision](../../docs/decisions/0005-container-lab.md) records verified
 behavior and design limits.
