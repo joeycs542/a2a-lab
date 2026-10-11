@@ -6,7 +6,30 @@ M1 through M3 are implemented. Run two independent local agents that discover ea
 
 The [project constitution](docs/constitution.md) governs contributors and future coding agents. The M1 SDK probe and original unauthenticated loopback demo remain available. Coding agent skills and the reusable extension exercise follow in M4.
 
-## Setup and foundation check
+## Run with Docker
+
+Use Docker Desktop and Compose to run the lab without a host Python environment:
+
+```sh
+docker compose up --build -d --wait
+docker compose run --rm client call
+docker compose logs coordinator knowledge
+```
+
+The default is the authenticated M3 profile. Each agent runs in its own container;
+they communicate through a shared private loopback network namespace. No ports
+are published to the host. The client container performs discovery and A2A calls
+in that namespace. Dependencies are installed from `uv.lock` into the image;
+there are no source, `.venv`, `.env`, or host-credential mounts. The first image
+build downloads base images and dependencies; later calls reuse the running agents.
+
+Private teaching credentials live in three separate Docker volumes. Only the
+initialization job accesses all three; each agent mounts its own authority read-only,
+and the operator client holds the simulated user/human accounts. Follow the
+[Docker lab](labs/02-docker-delegation/README.md) for task commands, the optional
+unauthenticated profile, human approval, restart/expiry behavior, and teardown.
+
+## Host Python setup and foundation check
 
 Install `uv`, then run these commands from this code repository. In the full workspace, this repository is `src/a2a-lab`.
 
@@ -155,7 +178,60 @@ uv run pytest
 
 Tests cover configuration, discovery/delegation, typed artifacts, unsafe cards/destinations, payload and concurrency limits, deadlines, and owned-process cleanup. M3 adds invalid/expired/wrong-recipient credentials, owner-scoped results and cancellation, delegated identity, late-result prevention, polling/retention budgets, and missing/changed/expired/concurrent/replayed approvals. Live HTTP tests verify authenticated delegation, downstream cancellation, and the synthetic release flow. These are deterministic policy checks; they do not evaluate an LLM's resistance to prompt injection. Loopback networking is required for integration tests.
 
-## macOS editable import troubleshooting
+## macOS environment troubleshooting
+
+### Repair a slow or offloaded environment
+
+If the CLI pauses before printing its first event, inspect the environment files:
+
+```sh
+ls -lO .venv/lib/python3.12/site-packages/a2a/server/agent_execution
+```
+
+Files marked `dataless` have no locally resident contents. Reading them can stall
+Python imports while macOS retrieves their data. The normal fixture does not
+intentionally delay; only `[slow]` adds a delay. The project configures uv's
+[copy installation mode](https://docs.astral.sh/uv/reference/settings/#link-mode)
+so installed package files are independent of its cache.
+
+**For an iCloud Drive folder, select the outer `a2a-lab` folder in Finder and
+enable Keep Downloaded. Wait for downloads to finish before retrying.** Reinstalling
+with uv does not prevent iCloud from offloading those files afterward; this was
+observed even after a successful clean reinstall. Docker avoids host dependency
+imports and host credential reads; its initial build still needs the small source
+files available locally.
+
+Repair an existing environment from the unchanged lockfile, bypassing cached
+packages. If you previously set an external environment path, clear it first:
+
+```sh
+unset UV_PROJECT_ENVIRONMENT
+uv sync --locked --reinstall --no-cache
+uv run --locked a2a-lab demo
+```
+
+If replacing the old packages also stalls, stop the reinstall and preserve the
+generated environment within the ignored runtime directory, then create a fresh
+standard `.venv`. Stop any agents using that environment first, and choose an
+unused backup name if one already exists:
+
+```sh
+mkdir -p .runtime
+mv .venv .runtime/venv-before-repair
+uv sync --locked --no-cache
+uv run --locked a2a-lab demo
+```
+
+Neither procedure changes the lockfile, teaching credentials, or source code.
+Subsequent commands use the normal `uv sync` and `uv run` workflow. Copy mode
+does not control macOS storage policies; if files become `dataless` again, inspect
+the folder's storage/sync settings. The authenticated demo still requires valid
+credentials from `init-security`.
+
+The [local installation decision](docs/decisions/0004-local-environment-installation.md)
+records the repair, demo timings, verification, and limits.
+
+### Editable imports
 
 If installation succeeds but this workspace reports `ModuleNotFoundError: a2a_lab`, check whether generated `.pth` files have the macOS hidden flag. Python can skip such files, preventing the editable source path from loading. Clear the flag on the generated environment files, then retry:
 

@@ -1,0 +1,11 @@
+# Optional unauthenticated teaching profile; retain loopback and container limits.
+services:
+  knowledge:
+    environment:
+      A2A_LAB_PROFILE: local-demo
+  coordinator:
+    environment:
+      A2A_LAB_PROFILE: local-demo
+  client:
+    environment:
+      A2A_LAB_PROFILE: local-demo
