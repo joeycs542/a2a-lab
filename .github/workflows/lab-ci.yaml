@@ -1,0 +1,85 @@
+name: A2A lab checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lab-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check locked code and behavior
+        run: docker build --target verify -t a2a-lab:verify .
+
+      - name: Build installed runtime
+        run: docker build --target runtime -t a2a-lab:local .
+
+      - name: Exercise installed CLI and supervised agents without external networking
+        run: |
+          docker run --rm --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --memory 512m --cpus 2 --pids-limit 128 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m,uid=10001,gid=10001,mode=0700 \
+            --tmpfs /work:rw,noexec,nosuid,size=16m,uid=10001,gid=10001,mode=0700 \
+            --entrypoint /bin/sh a2a-lab:local -ec '
+              a2a-lab doctor
+              a2a-lab check-sdk
+              a2a-lab demo
+              a2a-lab init-security
+              a2a-lab demo --secure
+              A2A_LAB_KNOWLEDGE_WORKFLOW=release-readiness a2a-lab demo --secure --text "release readiness"
+            '
+
+      - name: Check workshop and extension Compose configuration
+        run: |
+          docker compose -p a2a-ci -f compose.yaml -f compose.workshop.yaml config --quiet
+          docker compose -p a2a-ci -f compose.yaml -f compose.readiness.yaml config --quiet
+          docker compose -p a2a-ci -f compose.yaml -f compose.demo.yaml config --quiet
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml config --quiet
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.review.yaml config --quiet
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml config --quiet
+
+      - name: Exercise independent Compose agents
+        run: |
+          docker compose -p a2a-ci up -d --wait --wait-timeout 60
+          docker compose -p a2a-ci run --rm client call --text "What belongs in a runbook?"
+          docker compose -p a2a-ci -f compose.yaml -f compose.readiness.yaml up -d --wait --wait-timeout 60
+          docker compose -p a2a-ci -f compose.yaml -f compose.readiness.yaml run --rm client call --text "release readiness"
+
+      - name: Exercise authenticated directory and specialist routing
+        run: |
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml up -d --wait --wait-timeout 60
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml run --rm client discover --text "runbook security release"
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml run --rm client call --text "secure delegation"
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml run --rm client call --text "release readiness"
+
+      - name: Exercise browser gateway and bounded specialist review
+        run: |
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml up -d --wait --wait-timeout 60
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml run -T --rm --entrypoint python client - < scripts/browser-smoke.py
+
+      - name: Show safe service traces
+        if: always()
+        run: docker compose -p a2a-ci logs --no-color coordinator knowledge
+
+      - name: Remove CI teaching state
+        if: always()
+        run: docker compose -p a2a-ci --profile tools down --volumes --remove-orphans
+
+      - name: Remove discovery CI teaching state
+        if: always()
+        run: docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml --profile tools down --volumes --remove-orphans

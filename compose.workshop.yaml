@@ -1,0 +1,17 @@
+# Optional manual cancellation exercise; all work remains bounded.
+services:
+  knowledge:
+    environment:
+      A2A_LAB_REQUEST_TIMEOUT_SECONDS: "30"
+      A2A_LAB_FIXTURE_DELAY_SECONDS: "15"
+      A2A_LAB_MAX_TASK_POLLS: "600"
+  coordinator:
+    environment:
+      A2A_LAB_REQUEST_TIMEOUT_SECONDS: "30"
+      A2A_LAB_FIXTURE_DELAY_SECONDS: "15"
+      A2A_LAB_MAX_TASK_POLLS: "600"
+  client:
+    environment:
+      A2A_LAB_REQUEST_TIMEOUT_SECONDS: "30"
+      A2A_LAB_FIXTURE_DELAY_SECONDS: "15"
+      A2A_LAB_MAX_TASK_POLLS: "600"

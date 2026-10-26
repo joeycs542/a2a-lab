@@ -1,0 +1,117 @@
+# Opt-in authenticated discovery. Use with compose.yaml and a distinct project.
+x-discovery-runtime: &runtime
+  image: a2a-lab:local
+  pull_policy: never
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  mem_limit: 256m
+  cpus: 1
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=16m,uid=10001,gid=10001,mode=0700
+  network_mode: service:knowledge
+
+services:
+  credential-init:
+    environment:
+      A2A_LAB_PROFILE: local-secure
+      A2A_LAB_TOPOLOGY: discovery
+    volumes:
+      - runbook-credentials:/credentials/runbook
+      - security-credentials:/credentials/security
+      - release-credentials:/credentials/release
+      - directory-credentials:/credentials/directory
+  knowledge:
+    environment:
+      A2A_LAB_TOPOLOGY: discovery
+  coordinator:
+    environment:
+      A2A_LAB_TOPOLOGY: discovery
+    depends_on:
+      directory: {condition: service_healthy}
+      runbook: {condition: service_healthy}
+      security: {condition: service_healthy}
+      release: {condition: service_healthy}
+  client:
+    environment:
+      A2A_LAB_TOPOLOGY: discovery
+
+  directory:
+    <<: *runtime
+    command: [serve, directory]
+    environment:
+      A2A_LAB_PROFILE: local-secure
+      A2A_LAB_TOPOLOGY: discovery
+      A2A_LAB_CREDENTIALS_DIRECTORY: /credentials/directory
+    volumes:
+      - directory-credentials:/credentials/directory:ro
+    depends_on:
+      knowledge: {condition: service_healthy, restart: true}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8110/health', timeout=2).close()"]
+      interval: 3s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
+  runbook:
+    <<: *runtime
+    command: [serve, runbook]
+    environment:
+      A2A_LAB_PROFILE: local-secure
+      A2A_LAB_TOPOLOGY: discovery
+      A2A_LAB_CREDENTIALS_DIRECTORY: /credentials/runbook
+    volumes:
+      - runbook-credentials:/credentials/runbook:ro
+    depends_on:
+      knowledge: {condition: service_healthy, restart: true}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8103/.well-known/agent-card.json', timeout=2).close()"]
+      interval: 3s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
+  security:
+    <<: *runtime
+    command: [serve, security]
+    environment:
+      A2A_LAB_PROFILE: local-secure
+      A2A_LAB_TOPOLOGY: discovery
+      A2A_LAB_CREDENTIALS_DIRECTORY: /credentials/security
+    volumes:
+      - security-credentials:/credentials/security:ro
+    depends_on:
+      knowledge: {condition: service_healthy, restart: true}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8104/.well-known/agent-card.json', timeout=2).close()"]
+      interval: 3s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
+  release:
+    <<: *runtime
+    command: [serve, release]
+    environment:
+      A2A_LAB_PROFILE: local-secure
+      A2A_LAB_TOPOLOGY: discovery
+      A2A_LAB_CREDENTIALS_DIRECTORY: /credentials/release
+    volumes:
+      - release-credentials:/credentials/release:ro
+    depends_on:
+      knowledge: {condition: service_healthy, restart: true}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8105/.well-known/agent-card.json', timeout=2).close()"]
+      interval: 3s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
+volumes:
+  directory-credentials:
+  runbook-credentials:
+  security-credentials:
+  release-credentials:

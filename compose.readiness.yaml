@@ -1,0 +1,11 @@
+# Keep the workflow and expected peer capability consistent in all processes.
+services:
+  knowledge:
+    environment:
+      A2A_LAB_KNOWLEDGE_WORKFLOW: release-readiness
+  coordinator:
+    environment:
+      A2A_LAB_KNOWLEDGE_WORKFLOW: release-readiness
+  client:
+    environment:
+      A2A_LAB_KNOWLEDGE_WORKFLOW: release-readiness

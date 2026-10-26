@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A2A Engineering Desk</title><link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<header><a class="brand" href="/">A2A <span>ENGINEERING DESK</span></a><span class="pill">LOCAL LAB</span></header>
+<main>
+  <aside>
+    <p class="eyebrow">YOUR WORKSPACE</p><h2>Ask the right specialist.</h2>
+    <p class="muted">The coordinator finds approved agents, checks their cards and asks them through A2A.</p>
+    <label for="identity">Demo identity</label><select id="identity"><option value="alice">Alice</option><option value="bob">Bob</option></select>
+    <p class="fine">These identities are simulated. Bob can use operations and release guidance; security is Alice-only.</p>
+    <p class="eyebrow spacer">SPECIALISTS</p>
+    <div class="agent"><span class="icon">01</span><div><strong>Operations</strong><small>Runbooks & incident preparation</small></div></div>
+    <div class="agent"><span class="icon">02</span><div><strong>Security</strong><small>Identity, trust & action integrity</small></div></div>
+    <div class="agent"><span class="icon">03</span><div><strong>Release</strong><small>Readiness & rollback checks</small></div></div>
+    <p class="fine spacer">Fixture-based teaching agents. Answers do not inspect systems, approve releases or execute actions.</p>
+  </aside>
+  <section class="conversation">
+    <p class="eyebrow">ENGINEERING ASSISTANT</p><h1>What are you working on?</h1>
+    <p class="muted">Ask about operations, security or release preparation. Follow the agent decisions alongside each answer.</p>
+    <div class="examples"><button data-question="What belongs in a runbook?">Prepare a runbook ↗</button><button data-question="How should we design secure delegation?">Review security ↗</button><button data-question="What should we review before a release?">Prepare a release ↗</button></div>
+    <div id="messages" aria-live="polite"></div>
+    <form id="question-form"><label for="question" class="sr-only">Your question</label><textarea id="question" maxlength="1000" rows="3" placeholder="Ask your engineering question…" required></textarea><div class="composer-footer"><span class="fine">Bounded local discovery · real A2A</span><button id="send" type="submit">Ask coordinator →</button></div></form>
+    <p id="error" role="alert"></p>
+  </section>
+  <section class="activity"><p class="eyebrow">DISCOVERY & DELEGATION</p><h2>Follow the decisions</h2><p class="muted">Live task status and owner-scoped discovery events appear here.</p><div id="status" class="status">Ready for a question</div><button id="cancel" hidden>Cancel current task</button><ol id="events"></ol></section>
+</main>
+<footer>A2A lab · Approved capabilities describe behavior. Application policy grants permission.</footer>
+</body>
+</html>
