@@ -52,6 +52,8 @@ async def test_relay_refuses_unbounded_response_and_does_not_follow_redirects() 
         requests.append(request)
         if request.url.path == "/style.css":
             return httpx.Response(200, content=b"x" * 65537)
+        if request.url.path == "/markdown-it.min.js":
+            return httpx.Response(200, content=b"x" * 100801)
         return httpx.Response(302, headers={"Location": "http://forged"})
 
     async with httpx.AsyncClient(
@@ -59,5 +61,17 @@ async def test_relay_refuses_unbounded_response_and_does_not_follow_redirects() 
         base_url="http://127.0.0.1:8080",
     ) as client:
         assert (await client.get("/style.css")).status_code == 503
+        assert (await client.get("/markdown-it.min.js")).status_code == 200
         assert (await client.get("/")).status_code == 503
-        assert len(requests) == 2
+        assert len(requests) == 3
+
+
+async def test_markdown_asset_still_has_a_finite_byte_limit() -> None:
+    async def upstream(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"x" * 131073)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(create_relay_app(httpx.MockTransport(upstream))),
+        base_url="http://127.0.0.1:8080",
+    ) as client:
+        assert (await client.get("/markdown-it.min.js")).status_code == 503

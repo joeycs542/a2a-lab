@@ -12,9 +12,10 @@ With Docker Desktop running, start a fresh named Compose project:
 docker compose -p a2a-demo -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml up --build -d --wait
 ```
 
-Open http://127.0.0.1:8080/ using that exact address. Ask about runbooks,
-security or release preparation. The browser displays the coordinator result and
-its discovery/delegation events.
+Open http://127.0.0.1:8080/ using that exact address. Run the default single-agent
+question or choose the three-specialist review. Replay starts paused; use Resume,
+Previous step and Next step to inspect the recorded execution. The final response
+appears above the map; specialist processing summaries and findings expand below.
 
 Alice and Bob are synthetic identities. Security guidance is Alice-only; Bob's
 three-specialist review returns an incomplete result. The browser never receives
@@ -60,4 +61,10 @@ Alternatively, run the locked checks in Docker:
 
 ```sh
 docker build --target verify -t a2a-lab:verify .
+```
+
+The dependency-free browser logic check requires Node.js:
+
+```sh
+node scripts/web-ui-smoke.cjs
 ```
