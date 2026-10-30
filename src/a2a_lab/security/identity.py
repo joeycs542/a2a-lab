@@ -21,6 +21,10 @@ class SecurityError(ValueError):
     """Local credential or authority validation failed."""
 
 
+class ExpiredCredentialError(SecurityError):
+    """A local teaching credential expired before it could be sent."""
+
+
 class Principal(BaseModel):
     """Identity fields derived exclusively from a configured verifier."""
 
@@ -60,7 +64,9 @@ class Credential(BaseModel):
     def bearer(self) -> str:
         """Refuse to send an expired locally issued credential."""
         if self.expires_at <= time.time():
-            raise SecurityError("Local credentials expired; generate a new security directory.")
+            raise ExpiredCredentialError(
+                "Local credentials expired; generate a new security directory."
+            )
         return f"Bearer {self.token.get_secret_value()}"
 
 

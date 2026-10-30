@@ -16,6 +16,7 @@ from a2a_lab.config import RPC_PATH, Settings
 from a2a_lab.domain.discovery import Candidate, SearchRequest, SearchResult, topic_scores
 from a2a_lab.domain.models import Answer, Reference
 from a2a_lab.domain.roles import SpecialistName
+from a2a_lab.domain.scenarios import section_name
 from a2a_lab.security.http import LocalAuthentication
 from a2a_lab.security.identity import (
     Owner,
@@ -155,12 +156,16 @@ class DiscoveryLookup:
 
     async def answer(self, question: str) -> Answer:
         """One deadline covers catalog, up to three cards and bounded delegation."""
-        scores = topic_scores(question)
+        scores = topic_scores(question, self.settings.demo_scenario)
         topics = tuple(topic for topic, score in scores.items() if score)
         if not topics:
             self.trace("selection.none reason=no-topic")
             return Answer(
-                answer="No supported topic matched. Ask about runbooks, security or releases.",
+                answer=(
+                    "No supported topic matched. Ask about food, a place or the budget."
+                    if self.settings.demo_scenario == "team-lunch"
+                    else "No supported topic matched. Ask about runbooks, security or releases."
+                ),
                 references=(),
             )
         async with asyncio.timeout(self.settings.request_timeout_seconds):
@@ -192,7 +197,9 @@ class DiscoveryLookup:
                 self.trace("selection.ambiguous")
                 return Answer(
                     answer="Several topics match equally. Ask one topic first: "
-                    + ", ".join(sorted(selected))
+                    + ", ".join(
+                        section_name(peer, self.settings.demo_scenario) for peer in sorted(selected)
+                    )
                     + ".",
                     references=(),
                 )
@@ -202,7 +209,10 @@ class DiscoveryLookup:
                 self.settings, peer_id, self.trace, server_keys=self.keys
             ).answer(question)
             return Answer(
-                answer=f"Selected specialist: {peer_id}\n\n{answer.answer}",
+                answer=(
+                    f"Selected specialist: {section_name(peer_id, self.settings.demo_scenario)}\n\n"
+                    f"{answer.answer}"
+                ),
                 references=answer.references,
             )
 
@@ -232,15 +242,23 @@ class DiscoveryLookup:
         sections: list[str] = []
         references: list[Reference] = []
         for peer, state, result in results:
+            label = section_name(peer, self.settings.demo_scenario)
             if result is None:
                 incomplete = True
-                sections.append(f"{peer}: {state}. No validated findings; no blind retry was sent.")
+                sections.append(
+                    f"{label}: {state}. No validated findings; no blind retry was sent."
+                )
             else:
-                sections.append(f"{peer}: completed\n{result.answer}")
+                sections.append(f"{label}: completed\n{result.answer}")
                 references.extend(result.references)
         prefix = (
             "Incomplete review: some requested topics lacked authorized, compatible findings.\n\n"
             if incomplete
             else "Engineering review from the selected specialists:\n\n"
         )
+        if self.settings.demo_scenario == "team-lunch":
+            if incomplete:
+                prefix = "Partial lunch plan: some requested help was not available.\n\n"
+            else:
+                prefix = "Team lunch plan:\n\n"
         return Answer(answer=prefix + "\n\n".join(sections), references=tuple(references))

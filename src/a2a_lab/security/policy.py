@@ -5,5 +5,5 @@ from a2a_lab.security.identity import Owner
 
 
 def permitted_peer(peer: SpecialistName, owner: Owner) -> bool:
-    """Teaching policy: Bob may use operations/release; security is Alice-only."""
+    """Restrict one configured role to Alice: Security or the lunch Budget agent."""
     return peer != "security" or owner == "alice"

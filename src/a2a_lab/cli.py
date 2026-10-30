@@ -209,7 +209,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise SecurityError("Search requires the discovery topology.")
             if not args.text.strip() or len(args.text) > settings.max_input_characters:
                 raise LookupFailure("Text is empty or exceeds the configured limit.")
-            topics = tuple(topic for topic, score in topic_scores(args.text).items() if score)
+            topics = tuple(
+                topic
+                for topic, score in topic_scores(args.text, settings.demo_scenario).items()
+                if score
+            )
             if not topics:
                 return {"candidates": [], "reason": "no-supported-topic"}
             async with asyncio.timeout(settings.request_timeout_seconds):

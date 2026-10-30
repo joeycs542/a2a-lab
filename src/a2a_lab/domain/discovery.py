@@ -5,18 +5,18 @@ import re
 from pydantic import BaseModel, ConfigDict, Field
 
 from a2a_lab.domain.roles import SpecialistName
-
-TOPIC_WORDS: dict[SpecialistName, frozenset[str]] = {
-    "runbook": frozenset({"runbook", "oncall", "incident", "operations"}),
-    "security": frozenset({"security", "secure", "approval", "trust"}),
-    "release": frozenset({"release", "readiness", "rollout", "rollback", "deployment"}),
-}
+from a2a_lab.domain.scenarios import TOPICS, DemoScenario
 
 
-def topic_scores(question: str) -> dict[SpecialistName, int]:
-    """Count distinct supported keywords, with no generated routing authority."""
+def topic_scores(
+    question: str, scenario: DemoScenario = "engineering"
+) -> dict[SpecialistName, int]:
+    """Match configured topics; a general lunch request asks all lunch agents."""
     words = frozenset(re.findall(r"[a-z]+", question.lower()))
-    return {topic: len(words & keywords) for topic, keywords in TOPIC_WORDS.items()}
+    scores = {peer: len(words & topic.words) for peer, topic in TOPICS[scenario].items()}
+    if scenario == "team-lunch" and "lunch" in words and not any(scores.values()):
+        return dict.fromkeys(scores, 1)
+    return scores
 
 
 class SearchRequest(BaseModel):

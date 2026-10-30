@@ -1,0 +1,4 @@
+markdown-it 15.0.3 (MIT)
+Source: https://registry.npmjs.org/markdown-it/-/markdown-it-15.0.3.tgz
+Browser bundle SHA-256: 391f2aa638e75e6c7859d0a5c5650ef0956722a45998f17e05b83bc655778e1e
+Served locally; no CDN or runtime package installation.

@@ -1,0 +1,18 @@
+# Use with compose.yaml and compose.discovery.yaml.
+# Give the operator time to inspect and cancel a specialist task.
+x-workshop-timing: &timing
+  A2A_LAB_REQUEST_TIMEOUT_SECONDS: "60"
+  A2A_LAB_FIXTURE_DELAY_SECONDS: "15"
+  A2A_LAB_MAX_TASK_POLLS: "1000"
+
+services:
+  coordinator:
+    environment: *timing
+  client:
+    environment: *timing
+  runbook:
+    environment: *timing
+  security:
+    environment: *timing
+  release:
+    environment: *timing

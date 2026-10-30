@@ -3,32 +3,46 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>A2A Engineering Desk</title><link rel="stylesheet" href="/style.css">
+  <script src="/markdown-it.min.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
-<header><a class="brand" href="/">A2A <span>ENGINEERING DESK</span></a><span class="pill">LOCAL LAB</span></header>
+<header><a class="brand" href="/">A2A <span id="desk-name">ENGINEERING DESK</span></a><span class="lab-label">Local teaching lab</span></header>
 <main>
-  <aside>
-    <p class="eyebrow">YOUR WORKSPACE</p><h2>Ask the right specialist.</h2>
-    <p class="muted">The coordinator finds approved agents, checks their cards and asks them through A2A.</p>
-    <label for="identity">Demo identity</label><select id="identity"><option value="alice">Alice</option><option value="bob">Bob</option></select>
-    <p class="fine">These identities are simulated. Bob can use operations and release guidance; security is Alice-only.</p>
-    <p class="eyebrow spacer">SPECIALISTS</p>
-    <div class="agent"><span class="icon">01</span><div><strong>Operations</strong><small>Runbooks & incident preparation</small></div></div>
-    <div class="agent"><span class="icon">02</span><div><strong>Security</strong><small>Identity, trust & action integrity</small></div></div>
-    <div class="agent"><span class="icon">03</span><div><strong>Release</strong><small>Readiness & rollback checks</small></div></div>
-    <p class="fine spacer">Fixture-based teaching agents. Answers do not inspect systems, approve releases or execute actions.</p>
-  </aside>
-  <section class="conversation">
-    <p class="eyebrow">ENGINEERING ASSISTANT</p><h1>What are you working on?</h1>
-    <p class="muted">Ask about operations, security or release preparation. Follow the agent decisions alongside each answer.</p>
-    <div class="examples"><button data-question="What belongs in a runbook?">Prepare a runbook ↗</button><button data-question="How should we design secure delegation?">Review security ↗</button><button data-question="What should we review before a release?">Prepare a release ↗</button></div>
-    <div id="messages" aria-live="polite"></div>
-    <form id="question-form"><label for="question" class="sr-only">Your question</label><textarea id="question" maxlength="1000" rows="3" placeholder="Ask your engineering question…" required></textarea><div class="composer-footer"><span class="fine">Bounded local discovery · real A2A</span><button id="send" type="submit">Ask coordinator →</button></div></form>
-    <p id="error" role="alert"></p>
+  <section class="intro">
+    <div><h1 id="page-heading">Follow the handoff.</h1><p id="page-intro">The coordinator finds a suitable agent, asks it through A2A, and brings the answer back.</p></div>
+    <div class="identity-control"><label for="identity">Requesting user</label><select id="identity" aria-describedby="identity-context identity-permissions"><option value="alice">Alice — all specialists</option><option value="bob">Bob — no Security access</option></select></div>
   </section>
-  <section class="activity"><p class="eyebrow">DISCOVERY & DELEGATION</p><h2>Follow the decisions</h2><p class="muted">Live task status and owner-scoped discovery events appear here.</p><div id="status" class="status">Ready for a question</div><button id="cancel" hidden>Cancel current task</button><ol id="events"></ol></section>
+  <div class="identity-context">
+    <p id="identity-context">Alice and Bob represent two simulated users of this client. The coordinator delegates with the requesting user’s permissions.</p>
+    <p id="identity-permissions" aria-live="polite">Alice can consult Operations, Security and Release. A full review can return three findings.</p>
+  </div>
+  <form id="question-form">
+    <label id="question-label" for="question">Question for the coordinator</label>
+    <div class="composer"><textarea id="question" maxlength="1000" rows="2" required>What belongs in a runbook?</textarea><button id="send" type="submit">Run live demo</button></div>
+    <div class="examples" aria-label="Demo questions"><span>Try:</span><button id="example-one" type="button" data-question="What belongs in a runbook?">One specialist</button><button id="example-all" type="button" data-question="Review runbook, security and release readiness.">Three-specialist review</button></div>
+  </form>
+  <p id="error" role="alert"></p>
+  <section id="result" class="result" hidden aria-label="Response delivered to client"><h2 id="result-title">Response delivered to client</h2><p id="result-summary"></p><div id="answer" class="markdown-response"></div><p id="sources"></p></section>
+  <section id="execution" class="execution" aria-label="Agent collaboration">
+    <div class="execution-toolbar"><h2 id="view-label">Live execution</h2><span id="status" role="status">Ready</span><button id="cancel" hidden>Stop this request</button></div>
+    <ol id="stages" class="stages" aria-label="Execution stages">
+      <li>Request</li><li>Discover</li><li>Select</li><li>Query</li><li>Respond</li><li>Deliver</li>
+    </ol>
+    <div class="flow" aria-label="Client to coordinator to specialists">
+      <section id="client-node" class="actor client"><h3 id="client-label">Client · Alice</h3><p id="client-state">Ready to ask</p><blockquote id="flow-question">Run the demo to send your question.</blockquote></section>
+      <div class="flow-link" aria-hidden="true"><svg viewBox="0 0 60 24"><path d="M2 12H54M46 4l8 8-8 8"/></svg></div>
+      <section id="coordinator-node" class="actor coordinator"><h3>Coordinator</h3><p id="coordinator-state">Find. Check. Delegate.</p><p id="coordinator-purpose" class="coordinator-purpose">Matches the question to a capability, checks the live card, and selects an authorized specialist.</p></section>
+      <div class="flow-link" aria-hidden="true"><svg viewBox="0 0 60 24"><path d="M2 12H54M46 4l8 8-8 8"/></svg></div>
+      <section class="specialist-group" aria-label="Specialist agents"><h3 id="agents-title">Specialists</h3><div id="specialists"></div></section>
+    </div>
+    <div id="return-path" class="return-path" hidden><svg aria-hidden="true" viewBox="0 0 60 24"><path d="M58 12H6m8-8-8 8 8 8"/></svg><span>Response returns through the coordinator to the client</span></div>
+    <div class="event-focus" aria-live="polite" aria-atomic="true"><p id="step-count">Ready for your question</p><h2 id="step-title">One question. The right specialist.</h2><p id="step-detail">Start with one specialist, then compare Alice and Bob on the three-specialist review.</p></div>
+    <div class="replay-controls" aria-label="Execution replay"><button id="replay" disabled>Replay</button><button id="pause" disabled>Pause</button><button id="previous" disabled>Previous step</button><button id="next" disabled>Next step</button><span id="replay-note">Replay becomes available after execution ends.</span></div>
+  </section>
+  <section id="agent-work" class="technical" hidden aria-label="Specialist processing and responses"><h2>Specialist work</h2><p class="note">Expand an agent to inspect its processing summary and returned finding. These are deterministic fixtures, not LLM thoughts.</p><div id="agent-details"></div></section>
+  <section class="technical"><details><summary>Inspect execution evidence</summary><p class="note">Task acknowledgments prove receipt. Processing summaries describe the fixture workflow, not model thoughts.</p><p id="task-id"></p><ol id="events"></ol></details></section>
 </main>
-<footer>A2A lab · Approved capabilities describe behavior. Application policy grants permission.</footer>
+<footer><p>Real A2A HTTP · Deterministic fixtures · No LLM</p><p id="footer-scope">The user selector is an operator simulation, not a login. These agents do not inspect systems, approve releases, or execute actions.</p></footer>
 </body>
 </html>

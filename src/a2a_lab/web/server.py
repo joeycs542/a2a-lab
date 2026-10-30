@@ -18,7 +18,13 @@ from starlette.routing import Route
 from a2a_lab.a2a.client import TERMINAL, LookupFailure, PeerClient, read_answer
 from a2a_lab.a2a.limits import BoundedTransport, RequestLimits
 from a2a_lab.config import Settings
-from a2a_lab.security.identity import Owner, SecurityError, load_client_keys
+from a2a_lab.domain.scenarios import TOPICS, section_name
+from a2a_lab.security.identity import (
+    ExpiredCredentialError,
+    Owner,
+    SecurityError,
+    load_client_keys,
+)
 
 
 class Question(BaseModel):
@@ -48,6 +54,7 @@ class Session:
     csrf: str = field(default_factory=lambda: secrets.token_urlsafe(32))
     expires: float = field(default_factory=lambda: time.monotonic() + 1800)
     tasks: dict[str, bool] = field(default_factory=dict)
+    questions: dict[str, str] = field(default_factory=dict)
 
 
 def create_web_app(settings: Settings) -> Starlette:
@@ -88,9 +95,14 @@ def create_web_app(settings: Settings) -> Starlette:
             session = Session()
             sessions[token] = session
             fresh = True
-        if request.method == "GET" and path in {"/", "/app.js", "/style.css"}:
-            name = {"/": "index.html", "/app.js": "app.js", "/style.css": "style.css"}[path]
-            media = {"/": "text/html", "/app.js": "text/javascript", "/style.css": "text/css"}[path]
+        assets = {
+            "/": ("index.html", "text/html"),
+            "/app.js": ("app.js", "text/javascript"),
+            "/style.css": ("style.css", "text/css"),
+            "/markdown-it.min.js": ("markdown-it.min.js", "text/javascript"),
+        }
+        if request.method == "GET" and path in assets:
+            name, media = assets[path]
             response: Response = Response(
                 files("a2a_lab.web").joinpath(name).read_text("utf-8"), media_type=media
             )
@@ -103,6 +115,18 @@ def create_web_app(settings: Settings) -> Starlette:
         else:
             try:
                 response = await dispatch(request, session)
+            except ExpiredCredentialError:
+                response = JSONResponse(
+                    {
+                        "error": (
+                            "Teaching credentials expired (one-hour lifetime). "
+                            "Start the lab with fresh teaching credentials, "
+                            "then refresh this page. "
+                            "Restarting the same containers does not renew credentials."
+                        )
+                    },
+                    status_code=503,
+                )
             except (ValueError, LookupFailure, SecurityError, httpx.HTTPError, TimeoutError):
                 response = JSONResponse(
                     {
@@ -140,6 +164,23 @@ def create_web_app(settings: Settings) -> Starlette:
                     "csrf": session.csrf,
                     "tasks": list(session.tasks),
                     "identity_mode": "synthetic-operator",
+                    "inference_backend": settings.inference_backend,
+                    "demo_scenario": settings.demo_scenario,
+                    "specialists": {
+                        peer: {
+                            "name": topic.name,
+                            "skill": topic.skill,
+                            "source": topic.source,
+                            "fixture": topic.fixture,
+                            "section": section_name(peer, settings.demo_scenario),
+                        }
+                        for peer, topic in TOPICS[settings.demo_scenario].items()
+                    },
+                    "prompt_profile": settings.prompt_profile,
+                    "model": settings.ollama_model
+                    if settings.inference_backend == "ollama"
+                    else None,
+                    "poll_timeout_ms": int(max(60, settings.request_timeout_seconds * 2) * 1000),
                 }
             )
         if path == "/api/identity":
@@ -150,6 +191,7 @@ def create_web_app(settings: Settings) -> Starlette:
                 )
             session.owner = choice.owner
             session.tasks.clear()
+            session.questions.clear()
             session.csrf = secrets.token_urlsafe(32)
             return JSONResponse({"owner": session.owner, "csrf": session.csrf})
         if path == "/api/ask":
@@ -162,6 +204,7 @@ def create_web_app(settings: Settings) -> Starlette:
             try:
                 task = await client.start(question.text)
                 session.tasks[task.id] = task.status.state in TERMINAL
+                session.questions[task.id] = question.text
             finally:
                 session.tasks.pop(reservation, None)
             return JSONResponse({"task_id": task.id}, status_code=202)
@@ -174,6 +217,7 @@ def create_web_app(settings: Settings) -> Starlette:
             payload: dict[str, object] = {
                 "task_id": task.id,
                 "state": TaskState.Name(task.status.state),
+                "question": session.questions[task_id],
             }
             if task.status.state == TaskState.TASK_STATE_COMPLETED:
                 payload["result"] = read_answer(task).answer.model_dump(mode="json")
@@ -218,6 +262,7 @@ def create_web_app(settings: Settings) -> Starlette:
         routes=[
             Route("/", endpoint),
             Route("/app.js", endpoint),
+            Route("/markdown-it.min.js", endpoint),
             Route("/style.css", endpoint),
             Route("/api/session", endpoint),
             Route("/api/task", endpoint),

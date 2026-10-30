@@ -66,6 +66,7 @@ async def test_browser_review_trace_isolation_and_cancel(settings: Settings) -> 
                         break
                     await asyncio.sleep(0.03)
             assert len(result["result"]["references"]) == 3
+            assert result["question"] == "runbook security release"
             assert all(
                 f"{role}: completed" in result["result"]["answer"]
                 for role in ("runbook", "security", "release")
@@ -88,6 +89,10 @@ async def test_browser_review_trace_isolation_and_cancel(settings: Settings) -> 
             assert cancel.status_code == 200
             final = (await alice.get(f"/api/task?id={slow_id}")).json()
             assert final["state"] == "TASK_STATE_CANCELED" and "result" not in final
+            assert final["question"] == "[slow] release"
+            changed = await alice.post("/api/identity", json={"owner": "bob"}, headers=headers)
+            assert changed.status_code == 200
+            assert (await alice.get(f"/api/task?id={task_id}")).status_code == 404
 
 
 async def test_review_failure_is_explicit_and_sends_are_bounded(settings: Settings) -> None:

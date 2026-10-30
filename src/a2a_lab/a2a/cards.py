@@ -16,6 +16,7 @@ from a2a.types import (
 from a2a_lab.a2a.protocol import PROTOCOL_VERSION
 from a2a_lab.config import RPC_PATH, Settings
 from a2a_lab.domain.roles import AgentName as AgentName
+from a2a_lab.domain.scenarios import TOPICS
 
 SKILLS: dict[AgentName, str] = {
     "coordinator": "engineering-coordination",
@@ -29,11 +30,17 @@ SKILLS: dict[AgentName, str] = {
 def required_skill_id(agent: AgentName, settings: Settings) -> str:
     """Select the expected capability from trusted workflow configuration."""
     if agent == "coordinator" and settings.topology == "discovery":
+        if settings.demo_scenario == "team-lunch":
+            return "team-lunch-plan" if settings.discovery_mode == "review" else "team-lunch-help"
         return (
             "engineering-review" if settings.discovery_mode == "review" else "engineering-discovery"
         )
     if agent == "knowledge" and settings.knowledge_workflow == "release-readiness":
         return "release-readiness"
+    if settings.demo_scenario == "team-lunch" and (
+        agent == "runbook" or agent == "security" or agent == "release"
+    ):
+        return TOPICS["team-lunch"][agent].skill
     return SKILLS[agent]
 
 
@@ -51,7 +58,7 @@ def build_agent_card(agent: AgentName, settings: Settings) -> AgentCard:
         if settings.knowledge_workflow == "release-readiness"
         else "What information should our service runbook contain?"
     )
-    if agent in {"runbook", "security", "release"}:
+    if agent == "runbook" or agent == "security" or agent == "release":
         description = (
             f"Return bundled {agent} guidance without inspecting systems or authorizing actions."
         )
@@ -71,8 +78,33 @@ def build_agent_card(agent: AgentName, settings: Settings) -> AgentCard:
             if settings.discovery_mode == "review"
             else "What belongs in a runbook?"
         )
+    display_name = f"A2A lab {agent}"
+    if settings.demo_scenario == "team-lunch":
+        if agent == "runbook" or agent == "security" or agent == "release":
+            topic = TOPICS["team-lunch"][agent]
+            display_name = f"Team lunch {topic.name} agent"
+            description = (
+                f"Give {topic.name.lower()} advice from fictional lunch notes. "
+                "No bookings or purchases."
+            )
+            question = {
+                "runbook": "Suggest food for our team lunch.",
+                "security": "What is our lunch budget?",
+                "release": "Where can we have our team lunch? Name a place.",
+            }[agent]
+        elif agent == "coordinator":
+            display_name = "Team lunch coordinator"
+            description = (
+                "Find permitted food, place and budget agents. Return their answers to the user."
+            )
+            question = "Plan a team lunch: food, place, and budget."
+    if settings.inference_backend == "ollama" and agent != "coordinator":
+        description = (
+            "Generate a concise answer using a local model and bundled synthetic notes. "
+            "Does not inspect systems or authorize actions."
+        )
     card = AgentCard(
-        name=f"A2A lab {agent}",
+        name=display_name,
         description=f"{description} Synthetic {settings.profile} loopback profile.",
         version=version("a2a-lab"),
         supported_interfaces=[
@@ -90,9 +122,11 @@ def build_agent_card(agent: AgentName, settings: Settings) -> AgentCard:
         skills=[
             AgentSkill(
                 id=required_skill_id(agent, settings),
-                name=f"Engineering {agent}",
+                name=display_name
+                if settings.demo_scenario == "team-lunch"
+                else f"Engineering {agent}",
                 description=description,
-                tags=["engineering", "synthetic"],
+                tags=[settings.demo_scenario, "synthetic"],
                 examples=[
                     question,
                     f"[slow] {question}",

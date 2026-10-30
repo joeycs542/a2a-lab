@@ -22,6 +22,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check files required by the labs
+        run: |
+          git ls-files --error-unmatch -- \
+            .agents/skills/a2a-implementation/SKILL.md \
+            .agents/skills/a2a-implementation/agents/openai.yaml \
+            .agents/skills/a2a-agent-card/SKILL.md \
+            .agents/skills/a2a-agent-card/agents/openai.yaml \
+            .agents/skills/a2a-agent-card/references/sdk-1.2.2.md
+
       - name: Check locked code and behavior
         run: docker build --target verify -t a2a-lab:verify .
 
@@ -50,8 +59,10 @@ jobs:
           docker compose -p a2a-ci -f compose.yaml -f compose.readiness.yaml config --quiet
           docker compose -p a2a-ci -f compose.yaml -f compose.demo.yaml config --quiet
           docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml config --quiet
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.discovery-workshop.yaml config --quiet
           docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.review.yaml config --quiet
           docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml config --quiet
+          docker compose -p a2a-discovery-ci -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml -f compose.lunch.yaml config --quiet
 
       - name: Exercise independent Compose agents
         run: |

@@ -7,7 +7,9 @@ from urllib.parse import urlsplit
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from a2a_lab.agents.prompting import PromptProfile
 from a2a_lab.domain.roles import ServiceName, SpecialistName, Topology, services_for
+from a2a_lab.domain.scenarios import DemoScenario
 
 RPC_PATH = "/a2a/jsonrpc"
 
@@ -23,6 +25,12 @@ class Settings(BaseSettings):
         frozen=True,
         validate_default=True,
     )
+
+    demo_scenario: DemoScenario = "engineering"
+    inference_backend: Literal["fixture", "ollama"] = "fixture"
+    ollama_model: str = Field(default="qwen3:0.6b", pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$")
+    prompt_profile: PromptProfile = "guided"
+    ollama_port: int = Field(default=11434, ge=1, le=65535)
 
     profile: Literal["local-demo", "local-secure"] = "local-demo"
     topology: Topology = "baseline"
@@ -88,6 +96,8 @@ class Settings(BaseSettings):
             raise ValueError("Discovery peers must be unique.")
         if self.topology == "discovery" and self.profile != "local-secure":
             raise ValueError("Discovery requires the authenticated local-secure profile.")
+        if self.demo_scenario == "team-lunch" and self.topology != "discovery":
+            raise ValueError("The team lunch scenario requires the discovery topology.")
         return self
 
     @property

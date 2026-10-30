@@ -1,0 +1,21 @@
+# Use with compose.yaml, compose.discovery.yaml and compose.web.yaml.
+x-lunch: &lunch
+  A2A_LAB_DEMO_SCENARIO: team-lunch
+
+services:
+  knowledge:
+    environment: *lunch
+  coordinator:
+    environment: *lunch
+  client:
+    environment: *lunch
+  directory:
+    environment: *lunch
+  runbook:
+    environment: *lunch
+  security:
+    environment: *lunch
+  release:
+    environment: *lunch
+  web:
+    environment: *lunch

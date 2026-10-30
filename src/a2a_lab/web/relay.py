@@ -42,7 +42,11 @@ def create_relay_app(transport: httpx.AsyncBaseTransport | None = None) -> Starl
             async with (
                 asyncio.timeout(15),
                 httpx.AsyncClient(
-                    transport=BoundedTransport(frozenset({url}), 65536, transport),
+                    transport=BoundedTransport(
+                        frozenset({url}),
+                        131072 if request.url.path == "/markdown-it.min.js" else 65536,
+                        transport,
+                    ),
                     timeout=10,
                     trust_env=False,
                     follow_redirects=False,
@@ -70,7 +74,14 @@ def create_relay_app(transport: httpx.AsyncBaseTransport | None = None) -> Starl
         routes=[
             Route(path, forward, methods=[method])
             for method, paths in {
-                "GET": ("/", "/app.js", "/style.css", "/api/session", "/api/task"),
+                "GET": (
+                    "/",
+                    "/app.js",
+                    "/style.css",
+                    "/markdown-it.min.js",
+                    "/api/session",
+                    "/api/task",
+                ),
                 "POST": ("/api/ask", "/api/identity", "/api/cancel"),
             }.items()
             for path in paths

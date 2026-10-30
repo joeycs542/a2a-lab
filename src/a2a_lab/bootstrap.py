@@ -4,9 +4,11 @@ from starlette.applications import Starlette
 
 from a2a_lab.a2a.client import PeerClient
 from a2a_lab.a2a.directory import DiscoveryLookup, create_directory_app
+from a2a_lab.a2a.ollama import OllamaWorkflow
 from a2a_lab.a2a.server import console_trace, create_agent_app
 from a2a_lab.agents.coordinator import CoordinatorAgent
 from a2a_lab.agents.knowledge import KnowledgeAgent
+from a2a_lab.agents.prompting import ModelRole
 from a2a_lab.agents.readiness import ReleaseReadinessAgent
 from a2a_lab.agents.specialist import SpecialistAgent
 from a2a_lab.config import Settings
@@ -42,9 +44,20 @@ def build_app(agent: ServiceName, settings: Settings) -> Starlette:
         else:
             workflow = CoordinatorAgent(PeerClient(settings, "knowledge", trace, server_keys=keys))
     elif agent == "runbook" or agent == "security" or agent == "release":
-        workflow = SpecialistAgent(agent, settings.fixture_delay_seconds)
+        workflow = SpecialistAgent(agent, settings.fixture_delay_seconds, settings.demo_scenario)
     elif settings.knowledge_workflow == "release-readiness":
         workflow = ReleaseReadinessAgent(settings.fixture_delay_seconds)
     else:
         workflow = KnowledgeAgent(settings.fixture_delay_seconds)
+    if settings.inference_backend == "ollama" and agent != "coordinator":
+        role: ModelRole = agent
+        if settings.demo_scenario == "team-lunch":
+            lunch_roles: dict[str, ModelRole] = {
+                "runbook": "food",
+                "security": "budget",
+                "release": "place",
+                "knowledge": "knowledge",
+            }
+            role = lunch_roles[agent]
+        workflow = OllamaWorkflow(workflow, settings, role=role)
     return create_agent_app(agent, settings, workflow, trace, keys=keys)

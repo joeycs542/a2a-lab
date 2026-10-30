@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -29,6 +30,10 @@ async def test_browser_session_csrf_origin_and_credentials_stay_private(settings
         assert "HttpOnly" in page.headers["set-cookie"]
         assert "SameSite=strict" in page.headers["set-cookie"]
         assert "script-src 'self'" in page.headers["content-security-policy"]
+        renderer = await client.get("/markdown-it.min.js")
+        assert renderer.status_code == 200
+        assert renderer.headers["content-type"].startswith("text/javascript")
+        assert len(renderer.content) > 65536
         session = (await client.get("/api/session")).json()
         assert session["identity_mode"] == "synthetic-operator"
         data = {"owner": "bob"}
@@ -74,4 +79,26 @@ async def test_question_cannot_claim_owner_or_credentials(settings: Settings) ->
             "/api/ask", headers=headers, json={"text": "security", "owner": "bob"}
         )
         assert response.status_code == 400
+        assert (await client.get("/api/session")).json()["tasks"] == []
+
+
+async def test_expired_credentials_explain_recovery_without_starting_work(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    expiry = load_client_keys(settings.credentials_directory).credentials[0].expires_at
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(create_web_app(settings)), base_url=settings.web_origin
+    ) as client:
+        session = (await client.get("/api/session")).json()
+        monkeypatch.setattr(
+            "a2a_lab.security.identity.time", SimpleNamespace(time=lambda: expiry + 1)
+        )
+        response = await client.post(
+            "/api/ask",
+            json={"text": "runbook"},
+            headers={"Origin": settings.web_origin, "X-Lab-CSRF": session["csrf"]},
+        )
+        assert response.status_code == 503
+        assert "Teaching credentials expired" in response.json()["error"]
+        assert "does not renew" in response.json()["error"]
         assert (await client.get("/api/session")).json()["tasks"] == []

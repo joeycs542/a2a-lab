@@ -1,0 +1,4 @@
+interface:
+  display_name: "A2A Implementation"
+  short_description: "Extend this A2A lab while preserving its controls"
+  default_prompt: "Use $a2a-implementation to extend this lab with a fixture workflow and verify its A2A and security behavior."
