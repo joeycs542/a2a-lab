@@ -223,3 +223,20 @@ __marimo__/
 
 # Lab runtime state and local credentials
 .runtime/
+
+# Keep internal material out of the publishable checkout.
+/docs/
+/labs/
+/.agents/
+/.impeccable/
+/private/
+/plans/
+/planning/
+/discussions/
+/reports/
+/notes/
+/DEMO-RUNBOOK.txt
+/demo-*.png
+*.md
+!/README.md
+!/src/a2a_lab/agents/notes/*.md
