@@ -1,5 +1,9 @@
 # Lab 2: Docker A2A delegation
 
+This exercise uses the original engineering scenario.
+For the Food, Place, and Budget presentation example, use [Lab 7](../07-interactive-review/README.md).
+A runbook in this exercise is a written guide for service support.
+
 Run this lab from the code repository with Docker Desktop and Docker Compose.
 It uses the same Python 3.12.13, pinned SDK, deterministic workflows, Agent Cards,
 task lifecycle, and approval policy as the host lab. No models are downloaded.

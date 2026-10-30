@@ -1,4 +1,8 @@
-# A2A workshop facilitator runbook
+# A2A workshop facilitator guide
+
+This workshop uses the original engineering scenario for task ownership and human approval.
+For the team lunch presentation, use [Lab 7](../../labs/07-interactive-review/README.md).
+For local inference, use the [model setup guide](local-model-integration.md).
 
 Duration: 90 minutes. Audience: engineers familiar with HTTP and Python.
 Use synthetic engineering notes and the authenticated Docker profile. Models,

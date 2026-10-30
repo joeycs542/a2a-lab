@@ -1,136 +1,155 @@
-# Local model integration
+# Local model setup
 
-The optional Ollama adapter and native browser launcher are now implemented.
-Follow the [current setup instructions](../../README.md#optional-local-model-version-ollama).
-The historical planning guidance below describes the original extension boundary;
-the default fixture path and isolated Docker network remain unchanged.
+The Ollama adapter is implemented.
+The native launcher uses the team lunch scenario and the `guided` prompt profile by default.
+It starts real A2A services with temporary teaching credentials.
 
-Reviewed: 11 October 2026. **Design and optional setup guidance:** no model or
-inference runtime has been installed or connected to the lab. The current CLI
-offers `notes` and `release-readiness` fixtures only. Commands below are setup
-examples checked against primary documentation, not executed validation.
+The coordinator selects agents through configured topic matching and access rules.
+Food, Place, and Budget make separate requests to the same model runtime.
+Their role instructions and task guides differ.
+Alice can use all three agents.
+Bob can use Food and Place only.
 
-The existing [adapter design](local-model-adapter.md) defines `KnowledgeLookup`
-and `Answer`. Keep A2A serving, identity, budgets, tasks, and approvals in the
-application. A model implements the domain lookup port; it cannot create grants,
-select credentials, change destinations, or turn an answer into a business action.
+## Requirements
 
-## Runtime and hardware choice
+Use Python 3.12.13, `uv`, and a local [Ollama installation](https://ollama.com/download).
+Run commands from the repository root.
+Stop native A2A services that already use agent ports 8101–8110.
+The Docker fixture demo uses private agent ports, but its browser can still occupy port 8080.
 
-| Situation | Candidate | What to verify before adoption |
-| --- | --- | --- |
-| Apple Silicon teaching machine | Native Ollama with a reviewed small instruction model | Runtime version, local-only configuration, RAM headroom, cold/warm latency and cancellation behavior. |
-| Explicit GGUF artifact and inference flags | Native `llama-server` from llama.cpp | Pinned runtime release/commit, artifact hash, license, tokenizer/chat template, context and output limits. |
-| Linux NVIDIA workstation | Reviewed runtime with supported GPU/container setup | Driver/toolkit compatibility, memory budget, network isolation and queue bounds. |
+Keep Ollama on loopback.
+The adapter connects to `127.0.0.1:11434` by default.
+It does not use a cloud API key.
 
-Ollama documents that macOS Docker Desktop lacks GPU acceleration for its Docker
-container. For this Mac, evaluate native inference separately from the existing
-containerized A2A lab. Do not infer GPU behavior for every Docker product from this
-specific limitation. [Ollama FAQ](https://docs.ollama.com/faq)
+## Start Ollama
 
-Start an evaluation with one small quantized instruction model and short synthetic
-contexts. Approximate raw weight storage is `parameters × bits / 8`: 3 billion
-parameters at 4 bits is about 1.5 GB before metadata, runtime buffers and KV cache.
-This arithmetic is not a RAM requirement or quality recommendation. Measure peak
-memory and reserve headroom for macOS, Docker and concurrent work. Longer contexts
-and concurrent inference increase resource use; size limits must be measured.
-
-## Acquire a reviewed artifact
-
-Record runtime version, model repository, immutable revision/digest, filename,
-quantization, license, source hash, chat template and download date. Review model
-documentation and avoid enabling remote repository code merely to load weights.
-Model availability and terms change; select the actual artifact during the later
-integration milestone rather than freezing an untested recommendation here.
-
-For an approved Hugging Face GGUF artifact, the official CLI supports revision
-selection. Replace the placeholders and install the reviewed CLI separately from
-the lab's locked environment:
-
-```sh
-hf download APPROVED_REPO APPROVED_FILE.gguf --revision IMMUTABLE_COMMIT --local-dir /approved/models
-shasum -a 256 /approved/models/APPROVED_FILE.gguf
-```
-
-The local checksum records bytes obtained; it does not establish publisher trust
-unless compared to independently trusted provenance.
-[Hugging Face CLI](https://huggingface.co/docs/huggingface_hub/guides/cli)
-
-## Optional Ollama smoke check
-
-Install a reviewed Ollama release through its official distribution. For a
-manually started server, use explicit loopback and local-only settings. If the
-desktop app already serves that port, quit it or configure that instance using
-the platform-specific FAQ rather than starting a competing server.
+If the Ollama application already serves port 11434, use that server.
+Otherwise, start a local server:
 
 ```sh
 OLLAMA_NO_CLOUD=1 OLLAMA_HOST=127.0.0.1:11434 ollama serve
-# In another terminal, after choosing the reviewed tag:
-ollama pull APPROVED_LOCAL_MODEL_TAG
-ollama list
-ollama --version
 ```
 
-Ollama's local API requires no authentication. Bind it to loopback; treat local
-processes and administrators as within its trust boundary. Its FAQ documents
-`OLLAMA_NO_CLOUD=1` and local binding. Record the resolved local model ID and
-provenance; a mutable tag alone is not an immutable model baseline.
-[Authentication](https://docs.ollama.com/api/authentication),
-[configuration FAQ](https://docs.ollama.com/faq)
-
-Use synthetic data for a direct runtime check, substituting the same reviewed tag:
+In another terminal, download the model:
 
 ```sh
-curl --fail --max-time 30 http://127.0.0.1:11434/api/generate \
-  -H 'Content-Type: application/json' \
-  -d '{"model":"APPROVED_LOCAL_MODEL_TAG","prompt":"Return JSON with answer containing one runbook tip and references as an empty array.","format":"json","stream":false,"options":{"num_ctx":2048,"num_predict":128}}'
-ollama ps
+ollama pull qwen3:0.6b
 ```
 
-The response is a runtime envelope; parse its `response` field as JSON and then
-validate the domain `Answer`. JSON formatting is not permission or semantic
-correctness. This smoke check does not exercise A2A, and its timeout does not prove
-the inference server stopped work. [Generate API](https://docs.ollama.com/api/generate),
-[generation parameters](https://docs.ollama.com/modelfile#valid-parameters-and-values)
+The download is approximately 523 MB.
+The runtime needs more memory than the model file.
+Response time and answer quality depend on the machine and question.
 
-As an alternative, a reviewed llama.cpp build serves an approved local GGUF using
-explicit endpoint/context flags:
+Before the demo, load the model with a short request:
 
 ```sh
-llama-server -m /approved/models/APPROVED_FILE.gguf --host 127.0.0.1 --port 8081 -c 2048 -n 128
+ollama run qwen3:0.6b --think=false "Say ready in one word."
 ```
 
-Check the installed release's help and pin it before implementation. The upstream
-server documentation is moving; do not adopt its default port or extra tools as
-lab permissions. [llama.cpp server](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)
+## Start the lunch demo
 
-## Adapter and network work still required
+Install the locked environment:
 
-1. Add a provider implementing `KnowledgeLookup.answer`, with validated startup
-   configuration and an exact separately approved inference endpoint. The current
-   A2A URL allowlist is for peers, not a generic HTTP tool permission.
-2. Use HTTPX with explicit deadlines, bounded response bytes, no redirects/proxies,
-   finite queue/concurrency and output-token limits. Parse the runtime envelope,
-   validate `Answer`, and reject malformed, oversized or unexpected content.
-3. Pass only authorized source text to inference. Resolve citations from source
-   identifiers controlled by the application; model-invented references are not
-   provenance. Keep secrets, grants, private policies and other users' tasks out.
-4. Preserve cancellation propagation and prevention of late task artifacts. Test
-   remote inference continuing after a client timeout; do not promise GPU work
-   termination without runtime evidence.
-5. Keep fixture mode for reproducible teaching and tests. Add opt-in integration
-   checks for quality, adversarial prompts, malformed output, cold/warm latency,
-   peak memory, concurrency, cancellation and model/runtime upgrades.
+```sh
+uv sync --locked --no-editable
+```
 
-The current Compose internal network cannot reach a host inference service, and
-container loopback is not host loopback. Connecting native Mac inference requires
-an explicit network design (for example a restricted gateway), destination policy
-and separate authentication review. Do not fix this by broadly binding a model to
-`0.0.0.0`, publishing the lab ports, or removing the internal network. A first
-model adapter can instead be evaluated in the native loopback setup once its
-environment is reliably resident. No connectivity change is included in M5.
+Start the native launcher:
 
-An integration completion record must identify exact runtime/model artifacts,
-measured machine specifications, observed budgets, failure outcomes and residual
-risks. Claims about prompt resistance require model-specific evaluations in
-addition to deterministic application-policy tests.
+```sh
+uv run --no-editable python scripts/local-model-web.py
+```
+
+Open http://127.0.0.1:8080/.
+Ask `Suggest food for our team lunch.`
+Then select **Plan the whole lunch**.
+Compare Alice and Bob with the same question.
+The footer identifies the active model and prompt profile.
+
+If port 8080 is in use, start the browser on port 8081 instead:
+
+```sh
+A2A_LAB_WEB_PORT=8081 A2A_LAB_WEB_ORIGIN=http://127.0.0.1:8081 \
+  uv run --no-editable python scripts/local-model-web.py
+```
+
+To stop the launcher and its child services, press Ctrl-C.
+The launcher removes its temporary credentials on exit.
+Credentials expire after one hour.
+Restart the launcher for a new session.
+
+## One request without the browser
+
+Choose an unused credential directory.
+Initialize the credentials:
+
+```sh
+uv run --no-editable a2a-lab init-security --discovery --directory .runtime/lunch-cli
+```
+
+Run one lunch request:
+
+```sh
+A2A_LAB_CREDENTIALS_DIRECTORY=.runtime/lunch-cli \
+  A2A_LAB_DEMO_SCENARIO=team-lunch \
+  A2A_LAB_INFERENCE_BACKEND=ollama \
+  A2A_LAB_DISCOVERY_MODE=review \
+  A2A_LAB_REQUEST_TIMEOUT_SECONDS=120 \
+  A2A_LAB_MAX_TASK_POLLS=1000 \
+  uv run --no-editable a2a-lab demo --discovery \
+  --text "Plan a team lunch: food, place, and budget."
+```
+
+The command starts and stops its owned agents.
+It does not remove the credential directory that you created.
+Do not run it while the native browser launcher uses the same agent ports.
+
+## Model and prompt settings
+
+| Setting | Use |
+| --- | --- |
+| `A2A_LAB_OLLAMA_MODEL` | Select another installed local text model by its Ollama tag. |
+| `A2A_LAB_OLLAMA_PORT` | Select the loopback inference port. Default: `11434`. |
+| `A2A_LAB_PROMPT_PROFILE` | Select `generic`, `role`, or `guided`. Default: `guided`. |
+| `A2A_LAB_DEMO_SCENARIO` | Select `team-lunch` or the original `engineering` example. |
+
+Do not use a cloud model tag for local inference.
+The lab does not download models automatically.
+Restart the launcher after a settings change.
+Use [Lab 8](../../labs/08-runtime-prompts/README.md) to compare prompt profiles.
+
+## Limits and failure behavior
+
+The native launcher allows 120 seconds for a root task.
+Each specialist allows 40 seconds for inference under this setting.
+The adapter requests at most 256 output tokens and accepts at most 2,000 output characters.
+It uses a context limit of 4,096 tokens.
+It sends the question, selected instructions, and authorized example notes to Ollama.
+It does not send A2A credentials.
+
+The application attaches references from the supplied notes.
+These references do not prove the accuracy of generated claims.
+An unsupported question can return a no-match answer without a model request.
+A missing model, unavailable server, invalid answer, or exceeded limit causes an explicit failure.
+The adapter does not silently substitute fixture output.
+
+Cancellation stops the application's HTTP wait.
+Ollama can continue work that it already started.
+A timeout does not prove that remote generation stopped.
+
+The isolated Docker services cannot reach host Ollama.
+Use the native launcher for this setup.
+Do not expose Ollama on all network interfaces to connect the existing containers.
+
+For repeatable answers without a model, use the [Docker lunch demo](../../README.md#browser-demo).
+For implementation details, read the [adapter guide](local-model-adapter.md).
+
+## Source changes
+
+After a source or prompt change, reinstall the package:
+
+```sh
+uv sync --locked --no-editable --reinstall-package a2a-lab
+```
+
+Restart the launcher to load the changed files.

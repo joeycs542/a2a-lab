@@ -1,151 +1,167 @@
-# Lab 7: Interactive discovery and bounded specialist review
+# Lab 7: Team lunch browser demo
 
-Use a browser to ask the coordinator, watch discovery, and receive attributed
-findings from up to three independently running A2A agents. Deterministic topic
-matching and bundled notes keep the lab reproducible without downloaded models.
-Each run creates a new task; the page displays the latest run, not agent memory.
+## Goal
 
-The collaboration map follows Client → Coordinator → Specialist → Coordinator
-→ Client. Start with the one-specialist question, then compare Alice and Bob on
-three-specialist review. The execution stages show capability/card validation,
-selection, query, acknowledgment, response and delivery. A send alone is not
-receipt evidence; a returned child task ID is. Processing describes the configured
-keyword-match/bundled-note workflow, not model thoughts. No model is downloaded.
+Follow one question through discovery, delegation, and the return path.
+Compare two users with different access rules.
+This exercise uses packaged lunch data without a model.
+For generated answers, use the [local model setup](../../docs/guides/local-model-integration.md).
 
-After execution ends, use **Replay**, **Pause/Resume**, **Previous step**, and **Next step**. Replay starts
-paused; use Resume for automatic playback. Previous/Next pause playback while
-stepping through the evidence. Replay
-presents the recorded event order at a teaching pace; it does not reproduce wall
-clock timing, send requests or run agents again. Later evidence and the answer
-remain hidden until their recorded step. The final coordinator response appears above the map at delivery. Bottom
-**Specialist work** disclosures show each observed agent’s processing summary,
-task receipt and individual returned finding. Individual findings are extracted
-only from the coordinator’s fixed role sections and appear after that peer’s
-response event; unavailable or unexpected-format findings remain explicit.
-**Inspect execution evidence** retains the raw events and task IDs.
-Refresh recovers the latest session task and its replay from server-retained
-traces. There is no durable recording; restart or session expiry loses recovery.
-Identity changes clear the display and lock submission until token rotation ends.
-The gateway retains questions within the existing bounded session, not in traces.
+## Agents and users
 
-## Start and interact
+The coordinator has the supervisor role.
+It finds permitted specialists and sends the question to each selected specialist.
+The specialists return separate answers.
+The coordinator puts those answers together for the client.
 
-Run from the code repository with Docker Desktop running:
+| Specialist | Task | Permitted users |
+| --- | --- | --- |
+| Food | Give food options from the lunch notes. | Alice and Bob |
+| Place | Give place options from the lunch notes. | Alice and Bob |
+| Budget | Give the spending limits from the lunch notes. | Alice only |
 
-```sh
-docker compose -p a2a-desk -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml up --build -d --wait
-```
+Alice is the organizer.
+Bob is an attendee.
+They are simulated identities in one browser client.
+The directory filters entries by user.
+Each specialist independently applies its access rules.
+The demo makes no purchases, reservations, or invitations.
 
-Open [the engineering desk](http://127.0.0.1:8080). Use that exact address; the
-gateway validates Host and Origin. Only this gateway is published, on host
-loopback through a separate credential-free ingress relay. Agents and gateway
-retain their internal network; the relay forwards only fixed browser routes and
-mounts no credentials. Directory and A2A ports remain private. Every service uses the same
-locked runtime image; there are no host source/environment/credential mounts.
-Start with a fresh project rather than reusing baseline credential volumes.
+## Start the demo
 
-1. As Alice, click a supported-topic prompt and ask the coordinator. The decision
-   panel shows the directory query, live card checks, selection, child task and
-   final outcome. A compatible card is metadata, not proof of execution success.
-2. Ask `Review runbook, security and release readiness.` Expect three attributed
-   sections and their actual fixture citations. Only those three roles may be
-   contacted; no recursive discovery or automatic send retry occurs.
-3. Select Bob and ask the same question. Expect an **incomplete review** with
-   runbook/release findings. Security is Alice-only: catalog filtering and the
-   security peer's invocation policy independently enforce that restriction.
-4. Ask an unsupported topic. Expect an explicit no-match response and no catalog
-   or specialist request. Single mode in [Lab 6](../06-agent-discovery/README.md)
-   asks for clarification on equally ranked topics; review mode consults all
-   matching permitted specialists instead.
-5. Ask `[slow] release` and promptly click **Cancel current task**. The result is
-   canceled without an answer artifact. Known child IDs receive best-effort
-   cancellation; a lost start/cancel response can still leave an unknown outcome.
-6. Ask `[fail] runbook release`. Expect explicit failed findings and an incomplete
-   review. No validated citation is invented for a failed peer.
-
-The default fixture delay is two seconds. For review timeout behavior, a separate
-override can set `A2A_LAB_FIXTURE_DELAY_SECONDS` to four on specialists; per-peer
-review time is 2.5 seconds, inside the default five-second overall workflow.
-Do not add the baseline workshop's eight-second delay expecting successful reviews.
-
-## Availability and CLI alternatives
-
-Stop runbook, then ask `runbook release` in the browser:
+With Docker Desktop running, use a new named project:
 
 ```sh
-docker compose -p a2a-desk -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml stop runbook
+docker compose -p a2a-lunch -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml -f compose.lunch.yaml up --build -d --wait
 ```
 
-Expect an excluded candidate in the panel, a validated release finding, and an
-incomplete review. Restore the specialist afterward:
+Open http://127.0.0.1:8080/.
+Use that exact address.
+The gateway does checks of Host and Origin.
+Only the browser relay has a published loopback port.
+Agent ports remain private.
+
+## Follow the request
+
+1. Select Alice.
+2. Ask `Suggest food for our team lunch.`
+3. Find the coordinator's directory query in the execution view.
+4. Examine the live Agent Card checks and Food selection.
+5. Find the child task ID that confirms question receipt.
+6. Read the returned Food answer.
+7. Ask `Plan a team lunch: food, place, and budget.`
+8. Follow the three specialist answers back through the coordinator.
+9. Read the final result above the map.
+10. Expand **Specialist work** to examine each agent's output.
+
+A send event alone does not prove receipt.
+A returned child task ID provides receipt evidence.
+A compatible card describes an agent, but does not prove successful execution.
+
+In fixture mode, the processing summary describes topic matching and reference notes.
+In model mode, each selected specialist also makes a local inference request.
+Available model text does not guarantee a complete record of internal reasoning.
+
+## Compare access
+
+1. Select Bob.
+2. Ask `Plan a team lunch: food, place, and budget.`
+3. Read the partial plan.
+4. Compare it with Alice's result.
+
+Bob receives Food and Place answers only.
+The access rules exclude Budget.
+The difference comes from application policy, not from a different model.
+A completed coordinator task can contain a partial plan.
+The task state describes completion of the coordinator's work.
+It does not imply success for every specialist.
+
+## Replay the events
+
+After execution ends, select **Replay**.
+Replay starts paused.
+Use **Next step** to advance.
+Use **Previous step** to return to an earlier event.
+Use **Resume** for automatic playback.
+
+Replay shows recorded event order at a teaching pace.
+It does not reproduce the original timing or make new requests.
+Later evidence remains hidden until the corresponding step.
+The coordinator's return path and final result appear at delivery.
+
+The lower disclosures show each observed specialist's task receipt, processing summary, and returned answer.
+The execution evidence includes raw events and task IDs.
+A page refresh can recover the latest task while its session and server records remain available.
+A server restart or session expiry loses this recovery path.
+Changing the user clears the current display.
+
+## Unavailable specialist
+
+The lunch scenario keeps the internal service ID `runbook` for Food.
+To make Food unavailable, stop that service:
 
 ```sh
-docker compose -p a2a-desk -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml start runbook
+docker compose -p a2a-lunch -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml -f compose.lunch.yaml stop runbook
 ```
 
-For CLI review with no host-published port, use a fresh named project and
-`compose.review.yaml` instead of `compose.web.yaml`:
+Ask `Plan a team lunch: food, place, and budget.`
+Expect a partial plan with Food unavailable.
+The coordinator must not invent a Food answer or citation.
+
+Restore the service after the exercise:
 
 ```sh
-docker compose -p a2a-review -f compose.yaml -f compose.discovery.yaml -f compose.review.yaml up --build -d --wait
-docker compose -p a2a-review -f compose.yaml -f compose.discovery.yaml -f compose.review.yaml run --rm client call --text "runbook security release"
-docker compose -p a2a-review -f compose.yaml -f compose.discovery.yaml -f compose.review.yaml --profile tools down --volumes
+docker compose -p a2a-lunch -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml -f compose.lunch.yaml start runbook
 ```
 
-Native use requires six separately served roles and fresh discovery credentials
-as described in Lab 6. Set `A2A_LAB_DISCOVERY_MODE=review` consistently on coordinator
-and clients, then `uv run a2a-lab serve-web` in another terminal. The gateway uses
-the private operator directory and defaults to loopback port 8080. If changing
-that port, change `A2A_LAB_WEB_PORT` and `A2A_LAB_WEB_ORIGIN` together. Native service
-processes share the operator's OS account.
+Use [Lab 6](../06-agent-discovery/README.md) for detailed selection, ambiguity, cancellation, and failure exercises.
+That lab explicitly uses the original engineering scenario.
 
-## Security and bounded behavior
+## Access controls and limits
 
-Alice/Bob are labeled **synthetic operator identities**, not production login.
-The operator can simulate both. Browser scripts receive a session cookie and CSRF
-nonce; bearer credentials remain server-side. Cookies are HttpOnly/SameSite Strict
-for local HTTP. Host, exact Origin, JSON content type and CSRF are checked, including
-duplicate security headers. Sessions expire after 30 minutes and are capped at 32;
-each session retains at most 16 turns. Switching identity requires terminal tasks,
-clears that session's task list and rotates its CSRF nonce.
+The browser receives no bearer credentials.
+The gateway applies Host, Origin, CSRF, and session ownership checks.
+Task and trace APIs also apply verified owner scope.
+The user selector is a teaching simulation rather than a production login system.
 
-Session ownership gates task inspection/cancel. The trace application API separately
-checks SDK actor/owner scope. Traces omit prompts and credentials, retain at most
-64 distinct events of 300 characters per task, and share the finite task cap.
-Responses render Markdown through a pinned local markdown-it bundle, with raw
-HTML and images disabled and links restricted to HTTP, HTTPS or mailto. Questions,
-processing summaries and raw events remain text-only. The content policy stays self-only.
-Refresh recovers known session task IDs; server restart loses tasks, sessions and
-traces. The browser polls finitely and does not advertise A2A streaming.
+Answers render as Markdown with raw HTML and images disabled.
+Links use HTTP, HTTPS, or mailto schemes only.
+Questions, processing summaries, and execution events remain text-only.
+The browser polls for results rather than using A2A streaming.
 
-Review allows at most three distinct sends. Each finding must fit 2,000 characters
-and one reference; excessive output is rejected without truncating it. Combined
-results preserve the existing 8,192-character/four-reference `Answer` contract.
-Missing, failed, invalid or unknown findings make the review incomplete. Timeout
-does not imply rollback. These informational agents do not approve releases,
-procure supplies, inspect systems or execute tools. Read the
-[security evidence](../../docs/security.md) for enforcement and deployment gaps.
+The coordinator sends work to at most three distinct specialists.
+It applies a shared deadline and per-specialist limits.
+Each accepted finding has at most 2,000 characters and one reference.
+Missing, failed, invalid, or unknown results produce a partial plan.
+A timeout does not prove that remote work stopped.
+Model generation can continue after the application cancels its HTTP wait.
 
-## Verification and teardown
+Read the [security guide](../../docs/security.md) for implemented controls and deployment limits.
+
+## Verification and shutdown
+
+For the locked verification, run:
 
 ```sh
 docker build --target verify -t a2a-lab:verify .
-docker compose -p a2a-desk -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml run -T --rm --entrypoint python client - < scripts/browser-smoke.py
 ```
 
-The HTTP smoke checks review, permission-limited partial results, independent
-sessions, CSRF/origin and cancellation through the installed gateway. The full
-suite also tests forged candidates/cards, all-child cancellation, unknown timeout,
-oversized findings and direct unauthorized trace reads. These are policy checks;
-they do not evaluate model prompt resistance.
-
-Stop the desk while preserving teaching credentials with:
+For browser logic checks, run:
 
 ```sh
-docker compose -p a2a-desk -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml down
+node scripts/web-ui-smoke.cjs
 ```
 
-To deliberately remove **this project's** expiring credentials and operator files,
-add `--profile tools` before `down` and `--volumes` afterward. Seven credential
-volumes plus operator-work are removed; do not reset another project. Credentials
-expire after one hour. Use fresh project state before another session.
+The integration suite includes lunch answers, Budget denial, and real A2A requests.
+It also tests malformed cards, ownership, partial results, and cancellation.
+These tests do not prove model answer quality.
+
+To stop this project and keep its volumes, run:
+
+```sh
+docker compose -p a2a-lunch -f compose.yaml -f compose.discovery.yaml -f compose.web.yaml -f compose.lunch.yaml down
+```
+
+Teaching credentials expire after one hour.
+For a new session, use a new, unused project name.
+Use the same project name and files for every command within one session.

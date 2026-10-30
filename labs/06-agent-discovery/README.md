@@ -1,5 +1,9 @@
 # Lab 6: Discover and select specialist agents
 
+This exercise uses the original engineering scenario.
+For the Food, Place, and Budget presentation example, use [Lab 7](../07-interactive-review/README.md).
+A runbook in this exercise is a written guide for service support.
+
 Run the authenticated M7 extension with three independent A2A specialists and a
 read-only directory. The coordinator selects one suitable peer per question;
 the directory supplies candidates, while application policy retains permission.

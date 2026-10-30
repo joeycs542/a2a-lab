@@ -150,7 +150,9 @@ A registry entry, skill description, or successful discovery does not establish 
 
 Review evidence: discovery traces, incompatible/malformed card cases, capability mismatch, unavailable peers, and endpoint-change denial before delegation.
 
-The opt-in engineering desk uses an authenticated, read-only curated directory.
+The browser demo uses an authenticated, read-only directory with fixed entries.
+The presentation scenario uses Food, Place, and Budget specialists.
+The original engineering exercises remain available.
 Validate returned identities, capabilities and URLs against independent trusted
 configuration before fetching cards. Filter queries by represented user, and
 enforce invocation policy again at the peer. Public metadata is not private
@@ -165,7 +167,8 @@ send because peer text asks for it. Own every child and suppress late artifacts
 after root cancellation; a lost reply can still leave an unknown remote outcome.
 
 Browser gateways keep bearer credentials server-side. Verify Host, exact origin,
-CSRF and session ownership before operations; render peer text as text. Bound
+CSRF and session ownership before operations. Render answers as Markdown with raw
+HTML and images disabled. Keep questions and execution events as text. Bound
 sessions, turns, traces and polling. A synthetic identity selector must say it is
 an operator simulation. Discovery and trace APIs are application APIs, not added
 A2A protocol methods. Browser updates do not imply A2A streaming support.

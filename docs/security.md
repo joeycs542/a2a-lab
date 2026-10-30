@@ -1,11 +1,14 @@
 # Security boundaries and evidence
 
-Reviewed: 11 October 2026. Baseline: Python 3.12.13, `a2a-sdk` 1.2.2,
+Updated: 30 October 2026. Baseline: Python 3.12.13, `a2a-sdk` 1.2.2,
 A2A 1.0 JSON-RPC. This document travels with a standalone clone. The workspace
 security study and presentation materials are authoring artifacts outside this repo.
 
-The lab demonstrates application enforcement around deterministic agents. It does
-not establish production readiness or evaluate a model's prompt-injection resistance.
+The lab applies access controls to fixture and optional local model agents.
+The main demo uses fictional lunch data.
+Alice can use Food, Place, and Budget. Bob can use Food and Place only.
+The original engineering exercises use the same service access boundaries.
+The lab does not prove production readiness or model prompt-injection resistance.
 The [constitution](constitution.md) owns engineering rules; this document maps
 current behavior to evidence. Run the [workshop](guides/workshop.md) to inspect it.
 
@@ -29,8 +32,10 @@ a threat. Production transport encryption is required by the
 Messages, cards, references, and artifacts remain data. They cannot select a
 different workflow, credential, network destination, or approval role. Domain
 validation checks shape and bounds; it does not establish factual accuracy or
-semantic provenance. There is no LLM, arbitrary tool execution, persistent
-conversation memory, or external artifact download in the current workflows.
+semantic provenance. Optional Ollama inference is implemented.
+The adapter supplies selected instructions and authorized notes without A2A credentials.
+The model cannot grant access or authorize an action.
+The workflows have no arbitrary tool execution, persistent conversation memory, or external artifact downloads.
 
 ## Control evidence
 
@@ -60,7 +65,12 @@ and workflows at four each per agent, task polls at 100, and retained tasks at 1
 Each approval collection is capped at 128. The default workflow deadline is five
 seconds; a client exchange has a ten-second total budget, plus at most one second
 for cancellation cleanup. HTTP and workflow limits are separate, not one shared
-four-operation quota. [Configuration](../README.md#configuration) is authoritative.
+four-operation quota. These are general fixture defaults.
+The native model launcher uses a 120-second request timeout and 1,000 polls.
+With that timeout, each inference wait has a 40-second limit.
+Ollama can continue generation after cancellation ends the application's HTTP wait.
+Use [Settings](../src/a2a_lab/config.py) and the
+[launcher](../scripts/local-model-web.py) for the implemented values.
 
 Known delegated tasks receive best-effort cancellation. Serialized task publication
 prevents late artifacts after cancellation, including a provider that suppresses
@@ -109,15 +119,12 @@ callbacks, files, or registries, assess each new subscription, URL, content type
 and resource owner explicitly. A signed card still needs a trusted signer and
 does not grant permission.
 
-A [local model integration](guides/local-model-integration.md) is optional and not
-implemented. Keep inference behind the existing domain port. Define context
-provenance, output validation, token/time/memory budgets, cancellation and local
-endpoint policy before connecting it. Model prose cannot issue grants or tokens.
+The optional [local model adapter](guides/local-model-adapter.md) is implemented.
+The native launcher uses Ollama with the existing domain interface and access rules.
+It bounds context, output, and inference time.
+Cancellation can leave generation running on the Ollama server.
+Model text cannot issue credentials or approval grants.
+Use the [setup guide](guides/local-model-integration.md) for the supported local path.
 
-The optional supply chain uses A2A between sourcing/vendor agents and MCP to
-access Django business tools. Django must independently check tenant, stock,
-price floors, exact human approvals and transactional reservations. MCP tool
-annotations are descriptions rather than permissions; follow its
-[tools contract](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)
-and [security guidance](https://modelcontextprotocol.io/specification/2025-11-25/basic/security_best_practices).
-No Django/MCP service or commercial action exists in this lab.
+Django, MCP, procurement, and payments are not implemented.
+No commercial action occurs in this lab.

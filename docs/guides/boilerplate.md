@@ -1,5 +1,8 @@
 # Reuse the maintained boilerplate
 
+This guide starts from the original two-agent engineering setup.
+For the lunch demo and three specialists, use [Lab 7](../../labs/07-interactive-review/README.md).
+
 Clone or copy this repository as the starting codebase. There is one maintained
 implementation, with no duplicated `templates` tree. Setup, constitution,
 coding skills, and exercises work without the sibling authoring documents.
@@ -39,7 +42,7 @@ coding agent that discovers repo skills. Otherwise read the files directly;
 this guide needs no global skill installation. The
 [constitution](../constitution.md) remains authoritative.
 
-This topology has two fixed network roles with two selectable knowledge
+The baseline topology has two fixed network roles with two selectable knowledge
 workflows. A third peer needs explicit configuration, identity/audience issuance,
 card, authorization, CLI, discovery, and supervisor/Compose wiring changes.
 Workflow selection alone cannot add identities or destinations. Registry

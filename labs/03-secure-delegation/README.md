@@ -1,11 +1,15 @@
 # Lab 3 Authenticated lifecycle and human approval
 
+This exercise uses the original engineering scenario.
+For the Food, Place, and Budget presentation example, use [Lab 7](../07-interactive-review/README.md).
+A runbook in this exercise is a written guide for service support.
+
 Learn how verified identity controls tasks and how a separate human approval
 authorizes one exact synthetic commitment. The two Python agents still use
 bundled notes, with no model or paid API. Follow the repository [setup](../../README.md)
 and its non-editable installation fallback when needed.
 
-For Docker, follow the [workshop runbook](../../docs/guides/workshop.md). It provides
+For Docker, follow the [workshop guide](../../docs/guides/workshop.md). It provides
 the complete task/approval exercise inside an operator container, a named project,
 and an optional bounded timing override for manual cancellation. The host commands
 below remain available for a reliably installed native environment.

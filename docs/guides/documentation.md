@@ -33,7 +33,11 @@ Do not use a technical noun as a verb unless the standard permits that verb.
 | runtime task guide | Instructions that the application loads for the model. |
 | coding skill | Instructions for an agent that maintains the source code. |
 | Agent Card skill | A capability advertised in an Agent Card. |
-| specialist | An agent with a specific engineering topic. |
+| specialist | An agent with a specific task type, such as food advice. |
+| supervisor | The coordinator role that selects specialists and returns their answers. |
+| Food | The lunch specialist for food advice. Its internal service ID is `runbook`. |
+| Place | The lunch specialist for places. Its internal service ID is `release`. |
+| Budget | The lunch specialist for spending limits. Its internal service ID is `security`. |
 | task | The A2A work object with an ID and lifecycle state. |
 | trace | A record of selected execution events. |
 

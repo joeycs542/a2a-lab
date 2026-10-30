@@ -1,5 +1,9 @@
 # Lab 5: Review a served Agent Card
 
+This exercise uses the original engineering scenario.
+For the Food, Place, and Budget presentation example, use [Lab 7](../07-interactive-review/README.md).
+A runbook in this exercise is a written guide for service support.
+
 Use the [card skill](../../.agents/skills/a2a-agent-card/SKILL.md) and
 [pinned SDK reference](../../.agents/skills/a2a-agent-card/references/sdk-1.2.2.md).
 Runtime cards describe capabilities; coding skills guide implementation.

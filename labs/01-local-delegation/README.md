@@ -1,5 +1,9 @@
 # Lab 1: Discover a peer and delegate over A2A
 
+This exercise uses the original engineering scenario.
+For the Food, Place, and Budget presentation example, use [Lab 7](../07-interactive-review/README.md).
+A runbook in this exercise is a written guide for service support.
+
 Learn how a configured peer address becomes a validated Agent Card and an
 actual HTTP call. The deterministic agents use packaged synthetic notes,
 so no model account is needed. Follow the repository [setup](../../README.md)

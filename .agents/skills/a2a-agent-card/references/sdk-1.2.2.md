@@ -17,8 +17,11 @@ For knowledge, `knowledge_workflow=notes` expects `engineering-knowledge`;
 `release-readiness` expects `release-readiness`. Coordinator retains
 `engineering-coordination` in baseline mode; discovery selects
 `engineering-discovery` or `engineering-review` from startup settings. Fixed
-specialists advertise `operations-runbook`, `secure-agent-design` and
-`release-readiness`. `required_skill_id` is trusted client configuration.
+engineering specialists advertise `operations-runbook`, `secure-agent-design`, and
+`release-readiness`. The lunch scenario advertises `lunch-food`, `lunch-budget`, and
+`lunch-place` for the same fixed service IDs.
+Its coordinator advertises `team-lunch-help` in single mode or `team-lunch-plan` in review mode.
+`required_skill_id` selects the expected skill from trusted startup settings.
 
 For secure cards, the `localBearer` map entry contains an
 `HTTPAuthSecurityScheme` with `scheme="bearer"` and `bearer_format="opaque"`.

@@ -23,9 +23,11 @@ before RPC. Card text cannot replace the chosen role/endpoint. Content modes
 must match input validation and typed result artifacts.
 
 For discovery, bind each fixed specialist to its configured capability and
-recipient. The coordinator advertises `engineering-discovery` in single mode
-or `engineering-review` in review mode. Validate that selection on the live
-card; catalog prose cannot change it. Directory search and discovery traces
+recipient. In the engineering scenario, the coordinator advertises
+`engineering-discovery` in single mode or `engineering-review` in review mode.
+In the lunch scenario, it advertises `team-lunch-help` or `team-lunch-plan`, respectively.
+The lunch specialist skills are `lunch-food`, `lunch-place`, and `lunch-budget`.
+Compare the live card with the configured selection. Catalog prose cannot change it. Directory search and discovery traces
 are separate application APIs, not extra A2A methods or protocol streaming.
 
 Keep installed application version separate from interface protocol version.

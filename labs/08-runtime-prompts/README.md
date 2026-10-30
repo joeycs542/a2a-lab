@@ -1,56 +1,61 @@
-# Lab 8: Give a local-model agent a role and task guidance
+# Lab 8: Role instructions and task guides
 
 ## Goal
 
-Compare three prompt profiles using the same model, reference notes, question,
-and A2A delegation flow. Observe that a successful protocol task does not prove
-that its generated answer is useful or correct.
+Compare three prompt profiles with the same model, lunch notes, and question.
+Observe how different instructions can change each specialist's answer.
+A successful A2A task does not prove that a generated answer is useful or correct.
 
-Complete the [local-model setup](../../README.md#optional-local-model-version-ollama)
-first. Keep Ollama running with `qwen3:0.6b` installed. Run commands from the
-repository root, using Python 3.12.13 and the locked environment.
+Complete the [local model setup](../../docs/guides/local-model-integration.md) first.
+Keep Ollama running with `qwen3:0.6b` installed.
+Run commands from the repository root with Python 3.12.13 and the locked environment.
 
-## Three different meanings of skills
+## Three meanings of skills
 
-| Material | Consumer | Effect |
+| Object | Consumer | Purpose |
 | --- | --- | --- |
-| [Coding skills](../../.agents/skills/a2a-implementation/SKILL.md) | Coding agent maintaining this repository | Engineering instructions; not automatically sent to the runtime model |
-| [Runtime role prompts and task guidance](../../src/a2a_lab/agents/runtime_prompts) | Local model, explicitly loaded by the adapter | Shapes each specialist's generated contribution |
-| A2A Agent Card skills | A2A clients and the coordinator | Advertises capabilities for discovery; does not contain model instructions or grant permission |
+| [Coding skill](../../.agents/skills/a2a-implementation/SKILL.md) | Agent that maintains this repository | Instructions for source changes. These instructions do not automatically reach the runtime model. |
+| [Runtime role and task guide](../../src/a2a_lab/agents/runtime_prompts/) | Local model | Packaged instructions that the adapter loads explicitly. |
+| Agent Card skill | A2A client and coordinator | Description of an advertised task type. It does not grant access. |
 
-The runtime task guides are ordinary packaged Markdown instructions, not an
-implementation of an external skill-discovery standard. They have no tools or
-execution permissions.
+The runtime guides are Markdown instruction files.
+They have no tools or execution permissions.
+They do not implement an external skill-discovery standard.
 
-## Inspect what reaches the model
+## Inspect model inputs
 
-Read [the prompt loader](../../src/a2a_lab/agents/prompting.py) and
-[Ollama adapter](../../src/a2a_lab/a2a/ollama.py).
+Read the [prompt loader](../../src/a2a_lab/agents/prompting.py) and [Ollama adapter](../../src/a2a_lab/a2a/ollama.py).
 
-- `generic`: the shared base prompt, matching the original generic behavior.
-- `role`: base prompt plus the configured specialist's role and scope.
-- `guided`: base prompt, role, and that specialist's task checklist (the default).
+| Profile | Loaded instructions |
+| --- | --- |
+| `generic` | Base prompt. |
+| `role` | Base prompt and specialist role. |
+| `guided` | Base prompt, specialist role, and task guide. This is the default. |
 
-The system message contains the selected packaged instructions. A separate user
-message carries the question and retrieved note as JSON data. Request text cannot
-select a role, prompt file, endpoint, credentials, or extra tools. The coordinator
-still uses keyword routing and application policy. References identify supplied
-notes; they do not verify the generated claims. The guides request concise
-answers, not private reasoning or a chain of thought.
+The system message contains the selected instructions.
+A separate user message contains the question and retrieved notes as JSON data.
+Request text cannot select a role, file, endpoint, credential, or tool.
+The coordinator continues to use configured topic matching and application policy.
+References identify supplied notes, not independently verified claims.
+The instructions request concise answers rather than private reasoning.
 
-## Compare through real A2A calls
+## Compare real A2A calls
 
-Stop any native A2A demo using agent ports 8101–8110 first; the Docker fixture demo
-can stay running because its agent ports are internal. Choose a new credential
-directory if `.runtime/prompt-lab` already exists.
+Stop native A2A services that already use ports 8101–8110.
+Choose an unused credential directory.
+Install the package and initialize credentials:
 
 ```sh
 uv sync --locked --no-editable --reinstall-package a2a-lab
 uv run --no-editable a2a-lab init-security --discovery --directory .runtime/prompt-lab
+```
 
+Run each profile with the same lunch question:
+
+```sh
 for profile in generic role guided; do
   echo "Prompt profile: $profile"
-  A2A_LAB_DEMO_SCENARIO=engineering \
+  A2A_LAB_DEMO_SCENARIO=team-lunch \
     A2A_LAB_INFERENCE_BACKEND=ollama \
     A2A_LAB_PROMPT_PROFILE="$profile" \
     A2A_LAB_CREDENTIALS_DIRECTORY=.runtime/prompt-lab \
@@ -58,47 +63,52 @@ for profile in generic role guided; do
     A2A_LAB_REQUEST_TIMEOUT_SECONDS=120 \
     A2A_LAB_MAX_TASK_POLLS=1000 \
     uv run --no-editable a2a-lab demo --discovery \
-    --text "Review runbook, security and release readiness."
+    --text "Plan a team lunch: food, place, and budget."
 done
 ```
 
-Each invocation starts and stops its owned agents. Do not run profiles
-concurrently on the same ports. Credentials expire after one hour.
+Each command starts and stops its owned agents.
+Do not run profiles concurrently on the same ports.
+Credentials expire after one hour.
 
-Compare the answers using these questions:
+Compare the results:
 
-1. Did each specialist contribute its own portion instead of rejecting the entire request?
-2. Are the recommendations concrete and supported by its supplied note?
-3. Does the answer distinguish suggested checks from checks actually performed?
-4. Did it invent commands, approvals, or facts about a real service?
-5. Does every accepted result still pass through the coordinator with attributed references?
+1. Does Food answer only its assigned part?
+2. Does Place use places from its notes?
+3. Does Budget keep the stated spending limits?
+4. Does any agent claim to have made a purchase or reservation?
+5. Does the coordinator preserve the source of each accepted answer?
 
-Repeat with “What belongs in a runbook?” and “What should we check before a release?”
-Keep the model and question fixed when comparing profiles. Temperature is 0.2;
-outputs can vary, so a single favorable result is not proof of improvement.
+Use `Suggest food for our team lunch.` for a one-specialist comparison.
+Keep the model and question fixed between profiles.
+The temperature is 0.2, so output can still vary.
+One good answer does not prove a general improvement.
 
 ## Browser exercise
 
-Run one profile at a time. For example, on port 8081:
+Start one profile on port 8081:
 
 ```sh
-A2A_LAB_DEMO_SCENARIO=engineering A2A_LAB_PROMPT_PROFILE=guided \
+A2A_LAB_DEMO_SCENARIO=team-lunch A2A_LAB_PROMPT_PROFILE=guided \
   A2A_LAB_WEB_PORT=8081 A2A_LAB_WEB_ORIGIN=http://127.0.0.1:8081 \
   uv run --no-editable python scripts/local-model-web.py
 ```
 
-The footer identifies the profile. Use Ctrl-C before restarting with `generic`
-or `role`. Restarting clears the browser session and replay recording; capture
-comparison observations outside the repository if they include private discussions.
+Open http://127.0.0.1:8081/.
+The footer identifies the profile.
+To stop the launcher, press Ctrl-C.
+Start it again with `generic` or `role` for comparison.
+Restarting clears browser sessions and replay records.
 
 ## Extend one guide
 
-Edit the Operations [task guide](../../src/a2a_lab/agents/runtime_prompts/skills/runbook.md)
-to improve its checklist. Reinstall the package and restart the demo to load the
-edited resource. Change only one instruction at a time and repeat the comparison.
-Keep maintained prompts and this exercise in Git; keep private design discussions
-outside Git, following the [constitution](../../docs/constitution.md#project-documentation-and-private-design-discussions).
+Edit the Food [task guide](../../src/a2a_lab/agents/runtime_prompts/skills/food.md).
+Change one instruction at a time.
+Reinstall the package and restart the demo to load the changed resource.
+Do the same comparison again.
+Keep maintained prompts and lab instructions in Git.
+Keep private discussions outside Git under the [constitution](../../docs/constitution.md#project-documentation-and-private-design-discussions).
 
-Prompts influence behavior; they do not enforce authorization. The application
-retains identity, destination, task ownership, output limits and approval checks.
-Small models may still refuse useful requests, hallucinate, or echo instructions.
+Prompts can change output, but application code controls access.
+A better instruction does not replace destination checks, task ownership, or approval controls.
+Small models can still invent facts, refuse useful requests, or copy instructions.

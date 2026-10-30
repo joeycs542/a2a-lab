@@ -1,60 +1,63 @@
-# Local model adapter boundary
+# Local model adapter
 
-Status: The optional Ollama adapter is implemented. See the
-[README setup instructions](../../README.md#optional-local-model-version-ollama)
-for the native browser launcher and small-model setup. The
-[runtime/setup guide](local-model-integration.md) provides additional selection
-and hardware guidance.
-The required path remains deterministic, without model credentials.
+The optional Ollama adapter is implemented in [ollama.py](../../src/a2a_lab/a2a/ollama.py).
+Use the [setup guide](local-model-integration.md) to run it with the lunch agents.
+Fixture mode remains available without a model.
 
-## Integration point
+## Request path
 
-Keep A2A serving and inference separate. Implement the existing `KnowledgeLookup`
-port with `async answer(question: str) -> Answer`, and inject it in `bootstrap.py`
-through an explicit validated setting. Retain fixtures, and fail clearly when an
-opted-in provider is unavailable; do not label a fixture fallback as inference.
-No SDK wire type crosses this port.
+1. The coordinator selects a permitted specialist.
+2. The specialist gets its authorized reference notes.
+3. The adapter loads the configured role instructions and task guide.
+4. The adapter sends an HTTP request to local Ollama.
+5. The adapter does checks of the response format and size.
+6. The application attaches references from the supplied notes.
+7. The specialist returns an `Answer` through A2A.
 
-```mermaid
-flowchart LR
-    C[A2A request] --> E[Identity and executor controls]
-    E --> W[Workflow and domain port]
-    W --> F[Fixture]
-    W --> A[Optional inference adapter]
-    A --> R[Local runtime]
-    R --> V[Validated Answer and provenance]
-    V --> E
-```
+The model implements the `KnowledgeLookup.answer(question) -> Answer` domain interface.
+The interface keeps SDK wire types out of model code.
+The coordinator uses application routing rules rather than a model planner.
 
-Models do not create credentials, choose peers/tools, grant approval, or control
-execution destinations. Application code retains those decisions.
+## Instructions and context
 
-## Controls an adapter must preserve
+The `generic` profile loads the base prompt.
+The `role` profile also loads the specialist role.
+The `guided` profile also loads the specialist task guide.
+The loader uses packaged files selected by trusted settings.
+Request text cannot select a file path or another role.
 
-| Boundary | Required adapter behavior |
+A system message contains these instructions.
+A separate user message contains the question and reference notes as JSON data.
+The model receives no A2A credentials or approval grants.
+
+## Application controls
+
+| Boundary | Implemented behavior |
 | --- | --- |
-| Context | Bound inputs; pass authorized data only. Keep identity/tokens outside prompts, and retrieved/peer/tool text separate from trusted instructions. |
-| Output | Validate bounded `Answer` and reject extra fields. Attach references from known retrieval data; invented citations are not verified provenance. Never execute generated code, links, or approval flags. |
-| Network | Define a separate approved inference endpoint; A2A peer policy does not authorize model URLs. Disable implicit proxies/redirects and bound bodies. |
-| Budgets | Bound calls, concurrency, time, tokens/context, and resources. Measure representative workloads before changing the current workflow deadline. |
-| Cancellation | Own inference work and prevent late artifacts. Blocking/GPU work may need worker-process controls; cancelling an HTTP wait may leave server-side inference running. |
-| Errors and audit | Preserve failed versus unknown outcomes, avoid blind retries, and keep prompts/private data/credentials/raw provider responses out of routine logs. |
-| Authority | Preserve user/service/human separation, resource ownership, and exact approvals even when generated text recommends bypassing them. |
-| Evaluation | Keep deterministic policy tests and add opt-in model evaluations for injection, disclosure, invalid output, and workload limits. Record runtime/model versions and observed limits. |
+| Network | One configured loopback Ollama endpoint. No implicit proxies or redirects. |
+| Time | Inference wait equals one third of the configured request timeout. |
+| Output | At most 256 requested output tokens and 2,000 accepted characters. Empty or incomplete responses fail. |
+| References | Application code keeps the known note references. The model cannot supply a new trusted source. |
+| Failure | No automatic retry or silent fixture substitution. |
+| Cancellation | Cancellation ends the HTTP wait. Remote inference can continue. |
+| Access | Existing user, service, task ownership, and approval rules remain in application code. |
 
-Use the [constitution](../constitution.md) and
-[OWASP agent security](https://cheatsheetseries.owasp.org/cheatsheets/AI_Agent_Security_Cheat_Sheet.html)
-to review the untrusted-content and execution boundaries.
+These controls do not prove that an answer is correct or resistant to prompt injection.
+Model text cannot select credentials, add destinations, or authorize an action.
 
-## Before acquiring a model
+## Extension guidelines
 
-Record OS/architecture, RAM/GPU/VRAM, concurrent users, latency/context targets,
-and disk budget. Review model license, source/provenance, and any downloaded-code
-requirement. Choose a compatible runtime and model/quantization from current
-official documentation, then benchmark representative inputs and memory pressure.
+Keep fixture mode for repeatable tests.
+Keep model-specific HTTP code inside the adapter.
+Do checks of external data before returning an `Answer`.
+Keep references tied to authorized source data.
+Do not execute generated code, links, or approval flags.
 
-In Docker, add inference as an opt-in service with separate resources/storage
-and explicit connectivity. The current private namespace has no approved model
-endpoint. Host versus container serving, GPU support, and stop/cancel semantics
-depend on the chosen hardware/runtime. M4 supplies no runtime-specific installation
-commands or performance promise; model acquisition/connectivity is optional work.
+Before a model or runtime change, record its version and model identifier.
+Examine its license and source.
+Measure response time, memory use, invalid output, and cancellation behavior on the target machine.
+Use model evaluations in addition to application policy tests.
+
+The current Docker setup has no approved connection to host inference.
+A container inference service needs explicit network, resource, and access controls.
+Use the [constitution](../constitution.md) for project requirements.

@@ -1,5 +1,9 @@
 # Lab 4: Extend the maintained boilerplate
 
+This exercise uses the original engineering scenario.
+For the Food, Place, and Budget presentation example, use [Lab 7](../07-interactive-review/README.md).
+A runbook in this exercise is a written guide for service support.
+
 Create a fixture agent behind the existing domain port and preserve protocol
 and security boundaries. The worked `ReleaseReadinessAgent` is already checked
 in, so this exercise works from a standalone clone.
