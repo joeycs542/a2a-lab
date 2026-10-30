@@ -4,6 +4,7 @@ from starlette.applications import Starlette
 
 from a2a_lab.a2a.client import PeerClient
 from a2a_lab.a2a.directory import DiscoveryLookup, create_directory_app
+from a2a_lab.a2a.ollama import OllamaWorkflow
 from a2a_lab.a2a.server import console_trace, create_agent_app
 from a2a_lab.agents.coordinator import CoordinatorAgent
 from a2a_lab.agents.knowledge import KnowledgeAgent
@@ -47,4 +48,6 @@ def build_app(agent: ServiceName, settings: Settings) -> Starlette:
         workflow = ReleaseReadinessAgent(settings.fixture_delay_seconds)
     else:
         workflow = KnowledgeAgent(settings.fixture_delay_seconds)
+    if settings.inference_backend == "ollama" and agent != "coordinator":
+        workflow = OllamaWorkflow(workflow, settings)
     return create_agent_app(agent, settings, workflow, trace, keys=keys)

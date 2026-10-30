@@ -24,6 +24,10 @@ class Settings(BaseSettings):
         validate_default=True,
     )
 
+    inference_backend: Literal["fixture", "ollama"] = "fixture"
+    ollama_model: str = Field(default="qwen3:0.6b", pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$")
+    ollama_port: int = Field(default=11434, ge=1, le=65535)
+
     profile: Literal["local-demo", "local-secure"] = "local-demo"
     topology: Topology = "baseline"
     discovery_mode: Literal["single", "review"] = "single"

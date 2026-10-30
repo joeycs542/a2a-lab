@@ -15,6 +15,7 @@ markdown.validateLink = href => {
 function renderMarkdown(target, text) {
   target.innerHTML = markdown.render(text);
 }
+let modelMode = false, pollTimeout = 60000;
 let csrf = "", owner = "alice", active = null, busy = false, switching = false;
 let recording = null, frames = [], cursor = 0, replaying = false, timer = null;
 async function api(path, payload) {
@@ -71,7 +72,7 @@ function buildFrames(task) {
       if (!child) return;
       receipts[peer] = child;
       peers[peer] = "Received · awaiting response";
-      add(3, "specialist", info.name + " received the question", "The specialist acknowledged a task. Its fixture workflow checks the topic and retrieves “" + info.source + "”. Awaiting a response; no model is thinking.", count, peer);
+      add(3, "specialist", info.name + " received the question", modelMode ? "The specialist acknowledged the task. Its configured workflow retrieves the topic note and requests a generated answer from the local model. Awaiting a response." : "The specialist acknowledged a task. Its fixture workflow checks the topic and retrieves “" + info.source + "”. Awaiting a response; no model is thinking.", count, peer);
     } else if (type === "review.outcome" && info) {
       const state = / state=([a-z]+)/.exec(line)?.[1] || "unknown";
       peers[peer] = state === "completed" ? "Responded" : state;
@@ -129,7 +130,9 @@ function renderAgentWork(frame, task) {
     if (frame.receipts[peer]) {
       add("Question received", task.question);
       add("Task receipt", frame.receipts[peer]);
-      add("Processing summary", frame.peers[peer] === "Responded"
+      add("Processing summary", modelMode
+        ? "The configured model workflow uses the bundled note as context and validates the generated answer. This describes the workflow, not private model reasoning."
+        : frame.peers[peer] === "Responded"
         ? "Matched the topic and returned the bundled “" + info.source + "” note with a source reference."
         : "The configured workflow applies fixture controls, matches the topic and retrieves “" + info.source + "”. Acknowledgment alone does not confirm completion.");
     } else add("Receipt", "No specialist task acknowledgment observed at this step.");
@@ -242,7 +245,7 @@ function resetView() {
   element("replay-note").textContent = "Replay becomes available after execution ends."; controls();
 }
 async function poll(taskId) {
-  const deadline = Date.now() + 60000;
+  const deadline = Date.now() + pollTimeout;
   while (Date.now() < deadline) {
     const task = await api("/api/task?id=" + encodeURIComponent(taskId));
     if (active === taskId) { recording = task; frames = buildFrames(task); cursor = frames.length - 1; render(); }
@@ -284,6 +287,12 @@ document.querySelectorAll("[data-question]").forEach(button => button.addEventLi
   resetView(); lock(false);
   try {
     const session = await api("/api/session"); csrf = session.csrf; owner = session.owner; element("identity").value = owner;
+    modelMode = session.inference_backend === "ollama"; pollTimeout = session.poll_timeout_ms || 60000;
+    if (modelMode) {
+      document.querySelector("footer p").textContent = "Real A2A HTTP · Local model: " + session.model;
+      document.querySelector("#agent-work .note").textContent = "Expand an agent to inspect its workflow summary and model-generated finding. Summaries are not private model reasoning.";
+      document.querySelector(".technical details .note").textContent = "Task acknowledgments prove receipt. Processing summaries describe the configured workflow.";
+    }
     const latest = session.tasks.filter(id => !id.startsWith("pending-")).at(-1);
     if (latest) { active = latest; lock(true); await poll(latest); }
   } catch (error) { element("error").textContent = error.message; }

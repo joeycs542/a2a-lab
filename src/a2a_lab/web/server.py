@@ -163,6 +163,11 @@ def create_web_app(settings: Settings) -> Starlette:
                     "csrf": session.csrf,
                     "tasks": list(session.tasks),
                     "identity_mode": "synthetic-operator",
+                    "inference_backend": settings.inference_backend,
+                    "model": settings.ollama_model
+                    if settings.inference_backend == "ollama"
+                    else None,
+                    "poll_timeout_ms": int(max(60, settings.request_timeout_seconds * 2) * 1000),
                 }
             )
         if path == "/api/identity":

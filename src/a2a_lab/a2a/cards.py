@@ -71,6 +71,11 @@ def build_agent_card(agent: AgentName, settings: Settings) -> AgentCard:
             if settings.discovery_mode == "review"
             else "What belongs in a runbook?"
         )
+    if settings.inference_backend == "ollama" and agent != "coordinator":
+        description = (
+            "Generate a concise answer using a local model and bundled synthetic notes. "
+            "Does not inspect systems or authorize actions."
+        )
     card = AgentCard(
         name=f"A2A lab {agent}",
         description=f"{description} Synthetic {settings.profile} loopback profile.",
